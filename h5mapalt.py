@@ -2,7 +2,7 @@
 # -*- encoding: UTF-8 -*-
 #
 # AUTHOR:      Zich Robert (cichy)
-# VERSION:     1.1.0
+# VERSION:     1.2.0
 # DESCRIPTION: See help.
 #
 
@@ -13,6 +13,9 @@ import xml.etree.ElementTree as ET
 
 
 def printHelp():
+    if guiIsShown:
+        return
+    
     print("""
 Execution: python script.py [OPTIONS] mapFile.h5m
 
@@ -49,6 +52,7 @@ Options:
                                     - will look for files in data folder, which names starts with "NCF"
                                     - if NFC is used, then --creaNeutralReduction=0 should be set (probably)
 
+    --nogui                     To run console version (in gui version)
     --pathToGameFolder=../      Path to game folder.
     --loadMapFromBck=true       To load map from backup file (backup file is generated with first change).
                                     - better to leave true
@@ -58,138 +62,168 @@ Options:
     --logCreaInit=false         To log crea init info.
     --logCreaChange=false       To log crea change info.
     --logMapInfo=false          To log some map(old/new) info.
-    --logErrors=false           To log errors/warnings.
+    --logWarnings=false         To log warnings/errors.
     """)
-    exit()
 
 """
 NOTES:
     --creaPowerRatio=1.0 is not 100% group, because if all units in group are of one creature, then it will lead to group of one unit
 """
 
+# reset args func
+def resetArgs():
+    g = globals()
+    g["mapFile"] = None
+    g["pathToGameFolder"] = "../"
+    g["loadMapFromBck"] = "true"
 
-# args
-mapFile = None #sys.argv[1]
-pathToGameFolder = "../"
-loadMapFromBck = "true"
+    g["artChange"] = "true"
+    g["creaChange"] = "true"
 
-artChange = "true"
-creaChange = "true"
+    g["artRandom"] = "false"
+    g["creaRandom"] = "false"
+    g["creaMoodRatio"] = "0,3,2,1"
+    g["creaPowerRatio"] = "1.0"
+    g["creaGroupRatio"] = "0.55"
+    g["creaNeutralReduction"] = "2"
+    g["creaNCF"] = "false"
 
-artRandom = "false"
-creaRandom = "false"
-creaMoodRatio = "0,3,2,1"
-creaPowerRatio = "1.0"
-creaGroupRatio = "0.55"
-creaNeutralReduction = "2"
-creaNCF = "false"
-
-logArtInit = "false"
-logArtChange = "false"
-logCreaInit = "false"
-logCreaChange = "false"
-logMapInfo = "false"
-logErrors = "false"
-
-
-# parse args
-validArgs = [
-    "pathToGameFolder", "loadMapFromBck", "artChange", "creaChange", 
-    "artRandom", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
-    "creaNeutralReduction", "creaRandom", "creaNCF", "logArtInit", 
-    "logArtChange", "logCreaInit", "logCreaChange", "logMapInfo", 
-    "logErrors"
-]
-for arg in sys.argv[1:]:
-    if arg == "-h" or arg == "--help":
-        printHelp()
-    knownArg = False
-    valueSepPos = arg.find("=")
-    if len(arg) > 1 and valueSepPos != -1:
-        argName = arg[2:valueSepPos]
-        argValue = arg[valueSepPos + 1:]
-        if argName in validArgs:
-            locals()[argName] = argValue
-            knownArg = True
-    if not knownArg:
-        if mapFile is None:
-            mapFile = arg
-        else:
-            printHelp()
+    g["logArtInit"] = "false"
+    g["logArtChange"] = "false"
+    g["logCreaInit"] = "false"
+    g["logCreaChange"] = "false"
+    g["logMapInfo"] = "false"
+    g["logWarnings"] = "false"
+    
+    # no args
+    g["guiIsShown"] = False
+    g["creaNeutralChanceList"] = None
+    g["creaMoodList"] = None
+    g["dataFolder"] = None
+    g["mainArchFile"] = None
 
 
-# check map file
-if mapFile is None:
-    printHelp()
-if not os.path.exists(mapFile):
-    print("Map file \"{}\" does not exist!".format(mapFile))
-    exit()
-
-# convert args
-trueStrList = ["true"]
-
-loadMapFromBck = loadMapFromBck in trueStrList
-
-artChange = artChange in trueStrList
-creaChange = creaChange in trueStrList
-artRandom = artRandom in trueStrList
-creaRandom = creaRandom in trueStrList
-creaNCF = creaNCF in trueStrList
-
-logArtInit = logArtInit in trueStrList
-logArtChange = logArtChange in trueStrList
-logCreaInit = logCreaInit in trueStrList
-logCreaChange = logCreaChange in trueStrList
-logMapInfo = logMapInfo in trueStrList
-logErrors = logErrors in trueStrList
-try:
-    creaPowerRatio = float(creaPowerRatio)
-    creaGroupRatio = float(creaGroupRatio)
-    creaNeutralReduction = int(creaNeutralReduction)
-except ValueError:
-    printHelp()
-
-if creaPowerRatio <= 0.0:
-    creaPowerRatio = 1.0
-
-# fill creaNeutralChanceList
-creaNeutralChanceList = [True]
-for i in range(creaNeutralReduction):
-    creaNeutralChanceList.append(False)
-
-# fill creaMoodList
-basicMoodList = ["MONSTER_MOOD_FRIENDLY", "MONSTER_MOOD_AGGRESSIVE", "MONSTER_MOOD_HOSTILE", "MONSTER_MOOD_WILD"]
-basicCourageList = ["MONSTER_COURAGE_ALWAYS_JOIN", "MONSTER_COURAGE_ALWAYS_FIGHT", "MONSTER_COURAGE_CAN_FLEE_JOIN"]
-creaMoodList = []
-
-moodRatioParts = creaMoodRatio.split(",")
-if len(moodRatioParts) != 4:
-    printHelp()
-for moodIndex, moodRationPart in enumerate(moodRatioParts):
-    try:
-        moodRationPart = int(moodRationPart)
-        if moodRationPart > 0:
-            for i in range(moodRationPart):
-                creaMoodList.append(basicMoodList[moodIndex])
-    except ValueError:
-        pass
-if len(creaMoodList) == 0:
-    printHelp()
-
-
-# find main data file
-mainArchFile = os.path.join(pathToGameFolder, "data/data.pak") 
-if not os.path.exists(mainArchFile):
-    print("Archive \"{}\" does not exist!".format(mainArchFile))
-    exit()
-
+# custom exception
+class MyException(Exception):
+    pass
 
 # log class
 class Log:
     @staticmethod
     def error(pMsg):
-        if logErrors:
+        raise MyException(pMsg)
+    
+    @staticmethod
+    def warning(pMsg):
+        if logWarnings:
             print(pMsg)
+
+
+# parse args func
+def parseArgs(pArgs):
+    resetArgs()
+    g = globals()
+    
+    # parse args
+    ignoreArgs = ["--nogui"]
+    validArgs = [
+        "pathToGameFolder", "loadMapFromBck", "artChange", "creaChange", 
+        "artRandom", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
+        "creaNeutralReduction", "creaRandom", "creaNCF", "logArtInit", 
+        "logArtChange", "logCreaInit", "logCreaChange", "logMapInfo", 
+        "logWarnings", "guiIsShown"
+    ]
+    for arg in pArgs:
+        if arg not in ignoreArgs:
+            if arg == "-h" or arg == "--help":
+                printHelp()
+                sys.exit()
+            knownArg = False
+            valueSepPos = arg.find("=")
+            if len(arg) > 1 and valueSepPos != -1:
+                argName = arg[2:valueSepPos]
+                argValue = arg[valueSepPos + 1:]
+                if argName in validArgs:
+                    g[argName] = argValue
+                    knownArg = True
+            if not knownArg:
+                if g["mapFile"] is None:
+                    g["mapFile"] = arg
+                else:
+                    printHelp()
+                    Log.error("Unknown argument: \"{}\"".format(arg))
+
+    # convert args
+    trueStrList = ["true"]
+
+    g["loadMapFromBck"] = g["loadMapFromBck"] in trueStrList
+
+    g["artChange"] = g["artChange"] in trueStrList
+    g["creaChange"] = g["creaChange"] in trueStrList
+    g["artRandom"] = g["artRandom"] in trueStrList
+    g["creaRandom"] = g["creaRandom"] in trueStrList
+    g["creaNCF"] = g["creaNCF"] in trueStrList
+
+    g["logArtInit"] = g["logArtInit"] in trueStrList
+    g["logArtChange"] = g["logArtChange"] in trueStrList
+    g["logCreaInit"] = g["logCreaInit"] in trueStrList
+    g["logCreaChange"] = g["logCreaChange"] in trueStrList
+    g["logMapInfo"] = g["logMapInfo"] in trueStrList
+    g["logWarnings"] = g["logWarnings"] in trueStrList
+    g["guiIsShown"] = g["guiIsShown"] in trueStrList
+    try:
+        g["creaPowerRatio"] = float(g["creaPowerRatio"])
+        g["creaGroupRatio"] = float(g["creaGroupRatio"])
+        g["creaNeutralReduction"] = int(g["creaNeutralReduction"])
+    except ValueError:
+        printHelp()
+        Log.error("Value error!")
+    
+    if g["creaChange"]:
+        if g["creaPowerRatio"] <= 0.0:
+            g["creaPowerRatio"] = 1.0
+
+        # fill creaNeutralChanceList
+        g["creaNeutralChanceList"] = [True]
+        for i in range(g["creaNeutralReduction"]):
+            g["creaNeutralChanceList"].append(False)
+
+        # fill creaMoodList
+        basicMoodList = ["MONSTER_MOOD_FRIENDLY", "MONSTER_MOOD_AGGRESSIVE", "MONSTER_MOOD_HOSTILE", "MONSTER_MOOD_WILD"]
+        basicCourageList = ["MONSTER_COURAGE_ALWAYS_JOIN", "MONSTER_COURAGE_ALWAYS_FIGHT", "MONSTER_COURAGE_CAN_FLEE_JOIN"]
+        g["creaMoodList"] = []
+
+        moodRatioParts = creaMoodRatio.split(",")
+        if len(moodRatioParts) != 4:
+            printHelp()
+            Log.error("Value error!")
+        for moodIndex, moodRationPart in enumerate(moodRatioParts):
+            try:
+                moodRationPart = int(moodRationPart)
+                if moodRationPart > 0:
+                    for i in range(moodRationPart):
+                        g["creaMoodList"].append(basicMoodList[moodIndex])
+            except ValueError:
+                pass
+        if len(g["creaMoodList"]) == 0:
+            printHelp()
+            Log.error("Value error!")
+    
+    
+    # check map file
+    if g["mapFile"] is None or not os.path.exists(g["mapFile"]):
+        printHelp()
+        Log.error("Map file does not exist: \"{}\"".format(g["mapFile"]))
+    
+    # find data folder
+    g["dataFolder"] = os.path.join(g["pathToGameFolder"], "data")
+    if not os.path.exists(g["dataFolder"]):
+        Log.error("Data folder not found: \"{}\"".format(g["dataFolder"]))
+    
+    # find main data file
+    g["mainArchFile"] = os.path.join(g["dataFolder"], "data.pak") 
+    if not os.path.exists(g["mainArchFile"]):
+        Log.error("Archive does not exist: \"{}\"".format(g["mainArchFile"]))
 
 
 # main prog
@@ -228,7 +262,7 @@ class Artifact:
     
     @classmethod
     def init(pClass):
-        archFile = os.path.join(pathToGameFolder, "data/MMH55-Index.pak") 
+        archFile = os.path.join(dataFolder, "MMH55-Index.pak") 
         if not os.path.exists(archFile):
             archFile = mainArchFile
         
@@ -363,7 +397,7 @@ class Creature:
     
     @classmethod
     def init(pClass):
-        archFile = os.path.join(pathToGameFolder, "data/MMH55-Index.pak") 
+        archFile = os.path.join(dataFolder, "MMH55-Index.pak") 
         if not os.path.exists(archFile):
             archFile = mainArchFile
         
@@ -384,7 +418,6 @@ class Creature:
         
         if creaNCF:
             # if NCF is used, then load creas from files which names starts with "NCF"
-            dataFolder = os.path.join(pathToGameFolder, "data") 
             for (dirPath, dirNames, fileNames) in os.walk(dataFolder):
                 for fileName in fileNames:
                     if fileName.startswith("NCF"):
@@ -429,7 +462,7 @@ class Creature:
                                 # add to list
                                 crea = Creature.fromXml(root)
                                 if crea is None or len(crea.mShared) == 0:
-                                    Log.error("Creature error! ({})".format(archFilePath))
+                                    Log.warning("Creature error! ({})".format(archFilePath))
                                 else:
                                     loadedCreas.append(crea)
                 
@@ -447,11 +480,11 @@ class Creature:
                 if len(crea.mId) == 0:
                     otherCrea = Creature.getByShared(crea.mShared)
                     if otherCrea is None:
-                        Log.error("Creature id not found! ({})".format(crea.mShared))
+                        Log.warning("Creature id not found! ({})".format(crea.mShared))
                     else:
                         # creature with this shared is already registered
                         # id is empty because shared point out to other file
-                        Log.error("Creature alredy exist! ({})".format(crea.mShared))
+                        Log.warning("Creature alredy exist! ({})".format(crea.mShared))
                     continue
                 
                 pClass.sAll.append(crea)
@@ -1014,17 +1047,30 @@ class Map:
                 print(tierHighArmy[i]["army"])
 
 
-# prog execution
-if artChange or creaChange:
-    Artifact.init()
-    Creature.init()
+# main func
+def run(pArgs=None):
+    if pArgs is None:
+        pArgs = sys.argv[1:]
+    parseArgs(pArgs)
     
-    gameMap = Map(mapFile)
-    gameMap.load()
-    if artChange:
-        gameMap.changeArtifacts()
-    if creaChange:
-        gameMap.changeCreatures()
-    gameMap.save()
+    if artChange or creaChange:
+        Artifact.init()
+        Creature.init()
+        
+        gameMap = Map(mapFile)
+        gameMap.load()
+        if artChange:
+            gameMap.changeArtifacts()
+        if creaChange:
+            gameMap.changeCreatures()
+        gameMap.save()
 
+
+if __name__ == "__main__":
+    # prog execution
+    try:
+        run()
+    except MyException as ex:
+        print(str(ex))
+        sys.exit()
 
