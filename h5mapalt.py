@@ -2,7 +2,7 @@
 # -*- encoding: UTF-8 -*-
 #
 # AUTHOR:      Zich Robert (cichy)
-# VERSION:     1.0.0
+# VERSION:     1.1.0
 # DESCRIPTION: See help.
 #
 
@@ -45,6 +45,9 @@ Options:
                                     - value "1,1,0,0" would give us 50% FRIENDLY and 50% AGGRESSIVE
     --creaNeutralReduction=2    To reduce chance of neutrals to be placed on map.
                                     - chanceToPlaceOnMap = 1 / townsCount / (creaNeutralReduction + 1)
+    --creaNCF=false             To load and work with NCF creatures.
+                                    - will look for files in data folder, which names starts with "NCF"
+                                    - if NFC is used, then --creaNeutralReduction=0 should be set (probably)
 
     --pathToGameFolder=../      Path to game folder.
     --loadMapFromBck=true       To load map from backup file (backup file is generated with first change).
@@ -79,6 +82,7 @@ creaMoodRatio = "0,3,2,1"
 creaPowerRatio = "1.0"
 creaGroupRatio = "0.55"
 creaNeutralReduction = "2"
+creaNCF = "false"
 
 logArtInit = "false"
 logArtChange = "false"
@@ -92,8 +96,9 @@ logErrors = "false"
 validArgs = [
     "pathToGameFolder", "loadMapFromBck", "artChange", "creaChange", 
     "artRandom", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
-    "creaNeutralReduction", "creaRandom", "logArtInit", "logArtChange", 
-    "logCreaInit", "logCreaChange", "logMapInfo", "logErrors"
+    "creaNeutralReduction", "creaRandom", "creaNCF", "logArtInit", 
+    "logArtChange", "logCreaInit", "logCreaChange", "logMapInfo", 
+    "logErrors"
 ]
 for arg in sys.argv[1:]:
     if arg == "-h" or arg == "--help":
@@ -129,6 +134,7 @@ artChange = artChange in trueStrList
 creaChange = creaChange in trueStrList
 artRandom = artRandom in trueStrList
 creaRandom = creaRandom in trueStrList
+creaNCF = creaNCF in trueStrList
 
 logArtInit = logArtInit in trueStrList
 logArtChange = logArtChange in trueStrList
@@ -370,50 +376,94 @@ class Creature:
         pClass.sTownList = []
         pClass.sRandList = []
         
-        # load from file
-        with zipfile.ZipFile(archFile, "r") as arch:
-            for archFilePath in arch.namelist():
-                if archFilePath.startswith("GameMechanics/Creature/Creatures/") and archFilePath.endswith(".xdb"):
-                    with arch.open(archFilePath, "r") as dataFile:
-                        tree = ET.parse(dataFile)
-                        root = tree.getroot()
-                        if root.tag == "Creature":
-                            # add to list
-                            crea = Creature.fromXml(root)
-                            if crea is None or len(crea.mShared) == 0:
-                                Log.error("Creature error! ({})".format(archFilePath))
-                            else:
-                                pClass.sAll.append(crea)
-                                pClass.sMapShared[crea.mShared] = crea
-                                
-                                if crea.mCanGen:
-                                    if crea.mTown not in pClass.sMap:
-                                        pClass.sMap[crea.mTown] = {}
-                                    if crea.mTier not in pClass.sMap[crea.mTown]:
-                                        pClass.sMap[crea.mTown][crea.mTier] = []
-                                    pClass.sMap[crea.mTown][crea.mTier].append(crea)
+        # files with creatures
+        archFiles = [{
+            "mainFile": archFile,
+            "idFile": mainArchFile
+        }]
         
-        # load ids from other arch
-        with zipfile.ZipFile(mainArchFile, "r") as arch:
-            archFilePaths = arch.namelist()
-            for crea in pClass.sMapShared.values():
-                creaFileEndPos = crea.mShared.find(".xdb")
-                if creaFileEndPos != -1:
-                    creaFile = crea.mShared[:creaFileEndPos + 4]
-                    if creaFile.startswith("/"):
-                        creaFile = creaFile[1:]
-                    if creaFile in archFilePaths:
-                        with arch.open(creaFile, "r") as dataFile:
-                            tree = ET.parse(dataFile)
+        if creaNCF:
+            # if NCF is used, then load creas from files which names starts with "NCF"
+            dataFolder = os.path.join(pathToGameFolder, "data") 
+            for (dirPath, dirNames, fileNames) in os.walk(dataFolder):
+                for fileName in fileNames:
+                    if fileName.startswith("NCF"):
+                        fileName = os.path.join(dirPath, fileName)
+                        archFiles.append({
+                            "mainFile": fileName,
+                            "idFile": fileName
+                        })
+        
+        # load from file
+        for archFile in archFiles:
+            loadedCreas = []
+            
+            def loadIdsFromArch(pArchFile):
+                archFilePaths = arch.namelist()
+                for crea in loadedCreas:
+                    creaFileEndPos = crea.mShared.find(".xdb")
+                    if creaFileEndPos != -1:
+                        creaFile = crea.mShared[:creaFileEndPos + 4]
+                        if creaFile.startswith("/"):
+                            creaFile = creaFile[1:]
+                        if creaFile in archFilePaths:
+                            with arch.open(creaFile, "r") as dataFile:
+                                tree = ET.parse(dataFile)
+                                root = tree.getroot()
+                                if root.tag == "AdvMapMonsterShared":
+                                    crea.setIdFromXml(root)
+            
+            # load desc from arch
+            with zipfile.ZipFile(archFile["mainFile"], "r") as arch:
+                for archFilePath in arch.namelist():
+                    if archFilePath.startswith("GameMechanics/Creature/Creatures/") and archFilePath.endswith(".xdb"):
+                        with arch.open(archFilePath, "r") as dataFile:
+                            tree = None
+                            try:
+                                tree = ET.parse(dataFile)
+                            except:
+                                continue
+                            
                             root = tree.getroot()
-                            if root.tag == "AdvMapMonsterShared":
-                                crea.setIdFromXml(root)
-
-                if len(crea.mId) != 0:
-                    pClass.sMapId[crea.mId] = crea
-                else:
-                    print("Creature id not found! ({})".format(crea.mShared))
-                    exit()
+                            if root.tag == "Creature":
+                                # add to list
+                                crea = Creature.fromXml(root)
+                                if crea is None or len(crea.mShared) == 0:
+                                    Log.error("Creature error! ({})".format(archFilePath))
+                                else:
+                                    loadedCreas.append(crea)
+                
+                if archFile["mainFile"] == archFile["idFile"]:
+                    # load ids from this arch
+                    loadIdsFromArch(arch)
+            
+            if archFile["mainFile"] != archFile["idFile"]:
+                # load ids from other arch
+                with zipfile.ZipFile(archFile["idFile"], "r") as arch:
+                    loadIdsFromArch(arch)
+            
+            # register loaded creas
+            for crea in loadedCreas:
+                if len(crea.mId) == 0:
+                    otherCrea = Creature.getByShared(crea.mShared)
+                    if otherCrea is None:
+                        Log.error("Creature id not found! ({})".format(crea.mShared))
+                    else:
+                        # creature with this shared is already registered
+                        # id is empty because shared point out to other file
+                        Log.error("Creature alredy exist! ({})".format(crea.mShared))
+                    continue
+                
+                pClass.sAll.append(crea)
+                pClass.sMapId[crea.mId] = crea
+                pClass.sMapShared[crea.mShared] = crea
+                
+                if crea.mCanGen:
+                    if crea.mTown not in pClass.sMap:
+                        pClass.sMap[crea.mTown] = {}
+                    if crea.mTier not in pClass.sMap[crea.mTown]:
+                        pClass.sMap[crea.mTown][crea.mTier] = []
+                    pClass.sMap[crea.mTown][crea.mTier].append(crea)
         
         # fill sTownList
         for townId in pClass.sMap:
