@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 # -*- encoding: UTF-8 -*-
 #
-# AUTHOR:      Zich Robert (cichy)
-# VERSION:     1.2.0
-# DESCRIPTION: See help.
-#
 
 import os, sys
 import random as rand
 import shutil, zipfile
 import xml.etree.ElementTree as ET
+
+
+__author__ = "Zich Robert (cichy)"
+__version__ = "1.3.0"
 
 
 def printHelp():
@@ -51,7 +51,12 @@ Options:
     --creaNCF=false             To load and work with NCF creatures.
                                     - will look for files in data folder, which names starts with "NCF"
                                     - if NFC is used, then --creaNeutralReduction=0 should be set (probably)
-
+    
+    --enableScripts=true        To enable scripts.
+                                    - will enable scripts only if not already enabled
+                                    - will not disable scripts
+                                    - needed by mmh55 (to work in multiplayer)
+    
     --nogui                     To run console version (in gui version)
     --pathToGameFolder=../      Path to game folder.
     --loadMapFromBck=true       To load map from backup file (backup file is generated with first change).
@@ -63,7 +68,10 @@ Options:
     --logCreaChange=false       To log crea change info.
     --logMapInfo=false          To log some map(old/new) info.
     --logWarnings=false         To log warnings/errors.
-    """)
+
+Author: {}
+Version: {}
+    """.format(__author__, __version__))
 
 """
 NOTES:
@@ -87,7 +95,9 @@ def resetArgs():
     g["creaGroupRatio"] = "0.55"
     g["creaNeutralReduction"] = "2"
     g["creaNCF"] = "false"
-
+    
+    g["enableScripts"] = "true"
+    
     g["logArtInit"] = "false"
     g["logArtChange"] = "false"
     g["logCreaInit"] = "false"
@@ -129,9 +139,9 @@ def parseArgs(pArgs):
     validArgs = [
         "pathToGameFolder", "loadMapFromBck", "artChange", "creaChange", 
         "artRandom", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
-        "creaNeutralReduction", "creaRandom", "creaNCF", "logArtInit", 
-        "logArtChange", "logCreaInit", "logCreaChange", "logMapInfo", 
-        "logWarnings", "guiIsShown"
+        "creaNeutralReduction", "creaRandom", "creaNCF", "enableScripts", 
+        "logArtInit", "logArtChange", "logCreaInit", "logCreaChange", 
+        "logMapInfo", "logWarnings", "guiIsShown"
     ]
     for arg in pArgs:
         if arg not in ignoreArgs:
@@ -164,6 +174,8 @@ def parseArgs(pArgs):
     g["creaRandom"] = g["creaRandom"] in trueStrList
     g["creaNCF"] = g["creaNCF"] in trueStrList
 
+    g["enableScripts"] = g["enableScripts"] in trueStrList
+    
     g["logArtInit"] = g["logArtInit"] in trueStrList
     g["logArtChange"] = g["logArtChange"] in trueStrList
     g["logCreaInit"] = g["logCreaInit"] in trueStrList
@@ -913,7 +925,7 @@ class Map:
                 
                 print("map saved")
     
-    def    changeArtifacts(self):
+    def changeArtifacts(self):
         if self.mTree is None:
             return
         
@@ -944,6 +956,12 @@ class Map:
                             print("artifact change:")
                             print("old: {}".format(oldArtShared))
                             print("new: {}\n".format(newArtShared))
+        
+        # allow all artifacts
+        allowedArtifactsNode = root.find("artifactIDs")
+        if allowedArtifactsNode is None:
+            allowedArtifactsNode = ET.SubElement(root, "artifactIDs")
+        allowedArtifactsNode.clear()
         
         print("artifacts changed: {}".format(artifactsChanged))
         
@@ -1045,6 +1063,20 @@ class Map:
             for i in tierHighArmy:
                 print("tier: {}".format(i))
                 print(tierHighArmy[i]["army"])
+    
+    def enableScripts(self):
+        if self.mTree is None:
+            return
+        
+        root = self.mTree.getroot()
+        mapScriptNode = root.find("MapScript")
+        
+        if mapScriptNode is None:
+            mapScriptNode = ET.SubElement(root, "MapScript")
+        
+        if len(mapScriptNode.get("href", "")) == 0:
+            mapScriptNode.set("href", "MapScript.xdb#xpointer(/Script)")
+            print("scripts enabled")
 
 
 # main func
@@ -1053,7 +1085,7 @@ def run(pArgs=None):
         pArgs = sys.argv[1:]
     parseArgs(pArgs)
     
-    if artChange or creaChange:
+    if artChange or creaChange or enableScripts:
         Artifact.init()
         Creature.init()
         
@@ -1063,6 +1095,8 @@ def run(pArgs=None):
             gameMap.changeArtifacts()
         if creaChange:
             gameMap.changeCreatures()
+        if enableScripts:
+            gameMap.enableScripts()
         gameMap.save()
 
 

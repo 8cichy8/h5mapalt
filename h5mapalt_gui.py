@@ -9,7 +9,7 @@ import wx
 class MyFrame(wx.Frame):
 
     def __init__(self):
-        super().__init__(None, wx.ID_ANY, "H5MapAlt", style=wx.DEFAULT_FRAME_STYLE & ~ wx.RESIZE_BORDER)
+        super().__init__(None, wx.ID_ANY, "MMH55 Mapmixer", style=wx.DEFAULT_FRAME_STYLE & ~ wx.RESIZE_BORDER)
         
         self.mapFileEdit = None
         self.mapFileBtn = None
@@ -57,7 +57,7 @@ class MyFrame(wx.Frame):
         creaBox = wx.StaticBox(self, wx.ID_ANY, "creatures")
         creaSizer = wx.BoxSizer(wx.VERTICAL)
         
-        self.creaChangeCheck = wx.CheckBox(creaBox, wx.ID_ANY, "change")
+        self.creaChangeCheck = wx.CheckBox(creaBox, wx.ID_ANY, "swap")
         self.creaChangeCheck.SetValue(True)
         self.Bind(wx.EVT_CHECKBOX, self.OnCreaChangeCheckChange, self.creaChangeCheck)
         creaSizer.Add(self.creaChangeCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
@@ -77,14 +77,14 @@ class MyFrame(wx.Frame):
         creaGridSizer.Add(label, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
         creaGridSizer.Add(self.creaNeutralReductionSpin, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
-        label = wx.StaticText(creaBox, wx.ID_ANY, "group ratio")
+        label = wx.StaticText(creaBox, wx.ID_ANY, "mixed stacks (%)")
         self.creaGroupRatioSlider = wx.Slider(creaBox, wx.ID_ANY, 55, 0, 100, style=wx.SL_HORIZONTAL|wx.SL_LABELS)
         creaGridSizer.Add(label, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
         creaGridSizer.Add(self.creaGroupRatioSlider, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         creaSizer.Add(creaGridSizer, 1, wx.EXPAND, 0)
         
-        self.creaRandomCheck = wx.CheckBox(creaBox, wx.ID_ANY, "random")
+        self.creaRandomCheck = wx.CheckBox(creaBox, wx.ID_ANY, "random blocks")
         self.Bind(wx.EVT_CHECKBOX, self.OnCreaRandomCheckChange, self.creaRandomCheck)
         creaSizer.Add(self.creaRandomCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
         
@@ -102,23 +102,27 @@ class MyFrame(wx.Frame):
         creaMoodBoxSizer = wx.GridSizer(2)
         
         self.creaMoodFriendlyCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "friendly")
+        self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodFriendlyCheck)
         creaMoodBoxSizer.Add(self.creaMoodFriendlyCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         self.creaMoodAggressiveCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "aggressive")
         self.creaMoodAggressiveCheck.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodAggressiveCheck)
         creaMoodBoxSizer.Add(self.creaMoodAggressiveCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         self.creaMoodHostileCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "hostile")
         self.creaMoodHostileCheck.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodHostileCheck)
         creaMoodBoxSizer.Add(self.creaMoodHostileCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         self.creaMoodWildCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "wild")
+        self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodWildCheck)
         creaMoodBoxSizer.Add(self.creaMoodWildCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         creaMoodBorderSizer = wx.BoxSizer(wx.VERTICAL)
         creaMoodBorderSizer.Add(creaMoodBoxSizer, 0, wx.TOP|wx.BOTTOM|wx.EXPAND, 20)
         creaMoodBox.SetSizerAndFit(creaMoodBorderSizer)
-        rightSizer.Add(creaMoodBox, 0, wx.ALL|wx.EXPAND, 5)
+        leftSizer.Add(creaMoodBox, 0, wx.ALL|wx.EXPAND, 5)
         
         # moods end
         # creatures end
@@ -129,7 +133,7 @@ class MyFrame(wx.Frame):
         artBox = wx.StaticBox(self, wx.ID_ANY, "artifacts")
         artSizer = wx.BoxSizer(wx.VERTICAL)
         
-        self.artChangeCheck = wx.CheckBox(artBox, wx.ID_ANY, "change")
+        self.artChangeCheck = wx.CheckBox(artBox, wx.ID_ANY, "swap")
         self.artChangeCheck.SetValue(True)
         self.Bind(wx.EVT_CHECKBOX, self.OnArtChangeCheckChange, self.artChangeCheck)
         artSizer.Add(self.artChangeCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
@@ -137,7 +141,7 @@ class MyFrame(wx.Frame):
         comp = wx.StaticLine(artBox, wx.ID_ANY)
         artSizer.Add(comp, 0, wx.ALL|wx.EXPAND, 5)
         
-        self.artRandomCheck = wx.CheckBox(artBox, wx.ID_ANY, "random")
+        self.artRandomCheck = wx.CheckBox(artBox, wx.ID_ANY, "random blocks")
         artSizer.Add(self.artRandomCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
         
         sizer = wx.FlexGridSizer(2)
@@ -149,6 +153,24 @@ class MyFrame(wx.Frame):
         rightSizer.Add(artBox, 0, wx.ALL|wx.EXPAND, 5)
         
         # artifacts end
+        
+        
+        # mmh55
+        
+        mmh55Box = wx.StaticBox(self, wx.ID_ANY, "MMH55")
+        mmh55Sizer = wx.BoxSizer(wx.VERTICAL)
+        
+        self.enableScriptsCheck = wx.CheckBox(mmh55Box, wx.ID_ANY, "make hotseat/LAN compatible")
+        self.enableScriptsCheck.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.OnEnableScriptsCheckChange, self.enableScriptsCheck)
+        mmh55Sizer.Add(self.enableScriptsCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        
+        mmh55BorderSizer = wx.BoxSizer(wx.VERTICAL)
+        mmh55BorderSizer.Add(mmh55Sizer, 0, wx.TOP|wx.BOTTOM|wx.EXPAND, 20)
+        mmh55Box.SetSizerAndFit(mmh55BorderSizer)
+        rightSizer.Add(mmh55Box, 0, wx.ALL|wx.EXPAND, 5)
+        
+        # mmh55 end
         
         
         self.okBtn = wx.Button(self, wx.ID_ANY, "Ok")
@@ -174,11 +196,23 @@ class MyFrame(wx.Frame):
         self.creaNeutralReductionSpin.Enable(randomEnable)
         self.creaGroupRatioSlider.Enable(randomEnable)
         
-        self.creaMoodFriendlyCheck.Enable(enable)
-        self.creaMoodAggressiveCheck.Enable(enable)
-        self.creaMoodHostileCheck.Enable(enable)
-        self.creaMoodWildCheck.Enable(enable)
-        
+        # at least one mood should be checked
+        checkedCreaMoodCount = 0
+        creaMoodInputs = [
+            self.creaMoodFriendlyCheck,
+            self.creaMoodAggressiveCheck,
+            self.creaMoodHostileCheck,
+            self.creaMoodWildCheck
+        ]
+        for creaMoodInput in creaMoodInputs:
+            if creaMoodInput.GetValue():
+                checkedCreaMoodCount += 1
+        for creaMoodInput in creaMoodInputs:
+            if not enable or checkedCreaMoodCount != 1:
+                creaMoodInput.Enable(enable)
+            else:
+                creaMoodInput.Enable(not creaMoodInput.GetValue())
+    
     def RefreshArtifactInputsState(self):
         enable = self.artChangeCheck.GetValue()
         self.artRandomCheck.Enable(enable)
@@ -194,8 +228,14 @@ class MyFrame(wx.Frame):
         self.RefreshArtifactInputsState()
         self.CheckOkButtonState()
     
+    def OnCreaMoodCheckChange(self, pEvent):
+        self.RefreshCreatureInputsState()
+    
+    def OnEnableScriptsCheckChange(self, pEvent):
+        self.CheckOkButtonState()
+    
     def CheckOkButtonState(self):
-        enableOkButton = self.creaChangeCheck.GetValue() or self.artChangeCheck.GetValue()
+        enableOkButton = self.creaChangeCheck.GetValue() or self.artChangeCheck.GetValue() or self.enableScriptsCheck.GetValue()
         self.okBtn.Enable(enableOkButton)
     
     def OnMapFileBtnClick(self, pEvent):
@@ -223,13 +263,15 @@ class MyFrame(wx.Frame):
         argCreaMoodRatio += "," + ("1" if self.creaMoodHostileCheck.GetValue() else "0")
         argCreaMoodRatio += "," + ("1" if self.creaMoodWildCheck.GetValue() else "0")
         
+        argEnableScripts = "--enableScripts=" + ("true" if self.enableScriptsCheck.GetValue() else "false")
+        
         argGuiIsShown = "--guiIsShown=true"
         
         args = [
             argMapFile, argArtChange, argCreaChange, argArtRandom, 
             argCreaRandom, argCreaPowerRatio, argCreaGroupRatio, 
             argCreaNeutralReduction, argCreaNCF, argCreaMoodRatio, 
-            argGuiIsShown
+            argEnableScripts, argGuiIsShown
         ]
         try:
             mapalt.run(args)
