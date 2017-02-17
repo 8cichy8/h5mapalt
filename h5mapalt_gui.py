@@ -253,7 +253,7 @@ class MyFrame(wx.Frame):
         argCreaRandom = "--creaRandom=" + ("true" if self.creaRandomCheck.GetValue() else "false")
         
         argCreaPowerRatio = "--creaPowerRatio=" + str(self.creaPowerRatioSpin.GetValue())
-        argCreaGroupRatio = "--creaGroupRatio=" + str(self.creaGroupRatioSlider.GetValue())
+        argCreaGroupRatio = "--creaGroupRatio=" + str(self.creaGroupRatioSlider.GetValue() / 100)
         argCreaNeutralReduction = "--creaNeutralReduction=" + str(self.creaNeutralReductionSpin.GetValue())
         argCreaNCF = "--creaNCF=" + ("true" if self.creaNcfCheck.GetValue() else "false")
         
