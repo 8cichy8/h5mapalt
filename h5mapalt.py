@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 
 __author__ = "Zich Robert (cichy)"
-__version__ = "1.3.0"
+__version__ = "1.4.0"
 
 
 def printHelp():
@@ -36,38 +36,40 @@ Creatures:
     - should be roughly same power, but sometimes, there is big difference
 
 Options:
-    --artChange=true            To change artifacts(art).
-    --creaChange=true           To change creature(crea).
+    --artChange=true                To change artifacts(art).
+    --creaChange=true               To change creature(crea).
     
-    --artRandom=false           To randomize art.
-    --creaRandom=false          To randomize crea.
-    --creaPowerRatio=1.0        Will modify crea power.
-    --creaGroupRatio=0.55       Will modify chance to crea be group (1.0 == highest, but not 100%).
-    --creaMoodRatio=0,3,2,1     Will modify crea mood (probably does not affect groups).
-                                    - mood order: FRIENDLY,AGGRESSIVE,HOSTILE,WILD
-                                    - value "1,1,0,0" would give us 50% FRIENDLY and 50% AGGRESSIVE
-    --creaNeutralReduction=2    To reduce chance of neutrals to be placed on map.
-                                    - chanceToPlaceOnMap = 1 / townsCount / (creaNeutralReduction + 1)
-    --creaNCF=false             To load and work with NCF creatures.
-                                    - will look for files in data folder, which names starts with "NCF"
-                                    - if NFC is used, then --creaNeutralReduction=0 should be set (probably)
+    --artChangeOnlyRandom=false     To change only random art.
+    --artRandom=false               To randomize art.
+    --creaChangeOnlyRandom=false    To change only random crea.
+    --creaRandom=false              To randomize crea.
+    --creaPowerRatio=1.0            Will modify crea power.
+    --creaGroupRatio=0.55           Will modify chance to crea be group (1.0 == highest, but not 100%).
+    --creaMoodRatio=0,3,2,1         Will modify crea mood (probably does not affect groups).
+                                        - mood order: FRIENDLY,AGGRESSIVE,HOSTILE,WILD
+                                        - value "1,1,0,0" would give us 50% FRIENDLY and 50% AGGRESSIVE
+    --creaNeutralReduction=2        To reduce chance of neutrals to be placed on map.
+                                        - chanceToPlaceOnMap = 1 / townsCount / (creaNeutralReduction + 1)
+    --creaNCF=false                 To load and work with NCF creatures.
+                                        - will look for files in data folder, which names starts with "NCF"
+                                        - if NFC is used, then --creaNeutralReduction=0 should be set (probably)
     
-    --enableScripts=true        To enable scripts.
-                                    - will enable scripts only if not already enabled
-                                    - will not disable scripts
-                                    - needed by mmh55 (to work in multiplayer)
+    --enableScripts=true            To enable scripts.
+                                        - will enable scripts only if not already enabled
+                                        - will not disable scripts
+                                        - needed by mmh55 (to work in multiplayer)
     
-    --nogui                     To run console version (in gui version)
-    --pathToGameFolder=../      Path to game folder.
-    --loadMapFromBck=true       To load map from backup file (backup file is generated with first change).
-                                    - better to leave true
+    --nogui                         To run console version (in gui version)
+    --pathToGameFolder=../          Path to game folder.
+    --loadMapFromBck=true           To load map from backup file (backup file is generated with first change).
+                                        - better to leave true
     
-    --logArtInit=false          To log art init info.
-    --logArtChange=false        To log art change info.
-    --logCreaInit=false         To log crea init info.
-    --logCreaChange=false       To log crea change info.
-    --logMapInfo=false          To log some map(old/new) info.
-    --logWarnings=false         To log warnings/errors.
+    --logArtInit=false              To log art init info.
+    --logArtChange=false            To log art change info.
+    --logCreaInit=false             To log crea init info.
+    --logCreaChange=false           To log crea change info.
+    --logMapInfo=false              To log some map(old/new) info.
+    --logWarnings=false             To log warnings/errors.
 
 Author: {}
 Version: {}
@@ -88,7 +90,9 @@ def resetArgs():
     g["artChange"] = "true"
     g["creaChange"] = "true"
 
+    g["artChangeOnlyRandom"] = "false"
     g["artRandom"] = "false"
+    g["creaChangeOnlyRandom"] = "false"
     g["creaRandom"] = "false"
     g["creaMoodRatio"] = "0,3,2,1"
     g["creaPowerRatio"] = "1.0"
@@ -138,7 +142,8 @@ def parseArgs(pArgs):
     ignoreArgs = ["--nogui"]
     validArgs = [
         "pathToGameFolder", "loadMapFromBck", "artChange", "creaChange", 
-        "artRandom", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
+        "artChangeOnlyRandom", "artRandom", "creaChangeOnlyRandom", 
+        "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
         "creaNeutralReduction", "creaRandom", "creaNCF", "enableScripts", 
         "logArtInit", "logArtChange", "logCreaInit", "logCreaChange", 
         "logMapInfo", "logWarnings", "guiIsShown"
@@ -169,7 +174,9 @@ def parseArgs(pArgs):
     g["loadMapFromBck"] = g["loadMapFromBck"] in trueStrList
 
     g["artChange"] = g["artChange"] in trueStrList
+    g["artChangeOnlyRandom"] = g["artChangeOnlyRandom"] in trueStrList
     g["creaChange"] = g["creaChange"] in trueStrList
+    g["creaChangeOnlyRandom"] = g["creaChangeOnlyRandom"] in trueStrList
     g["artRandom"] = g["artRandom"] in trueStrList
     g["creaRandom"] = g["creaRandom"] in trueStrList
     g["creaNCF"] = g["creaNCF"] in trueStrList
@@ -340,27 +347,25 @@ class Artifact:
                 if not art.mCanBuy:
                     print("cannot buy: {}".format(art.mId))
     
+    def isRand(self):
+        return self.mId in self.sTypeGroups
+    
     @classmethod
-    def getAlt(pClass, pArtShared):
-        altShared = pArtShared
-        if pArtShared in pClass.sMapShared:
-            art = pClass.sMapShared[pArtShared]
-            altArt = None
-            if artRandom:
-                altArt = pClass.sMapId[art.mType]
-            else:
-                if art.mPrice > 0:
-                    if art.mPrice in pClass.sGroups:
-                        altArt = rand.choice(pClass.sGroups[art.mPrice])
-                else:
-                    if art.mType in pClass.sTypeGroups:
-                        altArt = rand.choice(pClass.sTypeGroups[art.mType])
-            
-            if altArt is not None:
-                altShared = altArt.mShared
+    def getAlt(pClass, pArt):
+        altArt = pArt
         
-        return altShared
-
+        if artRandom:
+            altArt = pClass.sMapId[pArt.mType]
+        else:
+            if pArt.mPrice > 0:
+                if pArt.mPrice in pClass.sGroups:
+                    altArt = rand.choice(pClass.sGroups[pArt.mPrice])
+            else:
+                if pArt.mType in pClass.sTypeGroups:
+                    altArt = rand.choice(pClass.sTypeGroups[pArt.mType])
+        
+        return altArt
+    
     @classmethod
     def getByShared(pClass, pArtShared):
         if pArtShared in pClass.sMapShared:
@@ -573,6 +578,9 @@ class Creature:
                 print("tier {} - {}".format(tierId, pClass.sMapTierPower[tierId]))
             print("")
     
+    def isRand(self):
+        return self.mTown == "TOWN_RANDOM"
+    
     @classmethod
     def getById(pClass, pId):
         crea = None
@@ -717,6 +725,12 @@ class Army:
                     ET.SubElement(unitDesc, "Amount").text = str(unit["count"])
                     ET.SubElement(unitDesc, "Amount2").text = "0"
                     ET.SubElement(unitDesc, "CustomAmount").text = "true"
+    
+    def isRand(self):
+        for unit in self.mUnits:
+            if not unit["crea"].isRand():
+                return False
+        return True
     
     @classmethod
     def getAlt(pClass, pArmy):
@@ -942,20 +956,20 @@ class Map:
                 if art is not None:
                     artShared = art.find("Shared")
                     if artShared is not None:
-                        artifactsChanged += 1
-                        oldArtShared = artShared.get("href", "")
-                        newArtShared = Artifact.getAlt(oldArtShared)
-                        artShared.set("href", newArtShared)
-                        
-                        newArt = Artifact.getByShared(newArtShared)
-                        if newArt.mType not in artifactsCount:
-                            artifactsCount[newArt.mType] = 0
-                        artifactsCount[newArt.mType] += 1
-                        
-                        if logArtChange:
-                            print("artifact change:")
-                            print("old: {}".format(oldArtShared))
-                            print("new: {}\n".format(newArtShared))
+                        oldArt = Artifact.getByShared(artShared.get("href", ""))
+                        if oldArt is not None and (not artChangeOnlyRandom or oldArt.isRand()):
+                            artifactsChanged += 1
+                            newArt = Artifact.getAlt(oldArt)
+                            artShared.set("href", newArt.mShared)
+                            
+                            if newArt.mType not in artifactsCount:
+                                artifactsCount[newArt.mType] = 0
+                            artifactsCount[newArt.mType] += 1
+                            
+                            if logArtChange:
+                                print("artifact change:")
+                                print("old: {}".format(oldArt.mShared))
+                                print("new: {}\n".format(newArt.mShared))
         
         # allow all artifacts
         allowedArtifactsNode = root.find("artifactIDs")
@@ -995,7 +1009,7 @@ class Map:
                 armyXml = item.find("AdvMapMonster")
                 if armyXml is not None:
                     army = Army.fromXml(armyXml)
-                    if army is not None:
+                    if army is not None and (not creaChangeOnlyRandom or army.isRand()):
                         armies.append(army)
                         creaturesChanged += 1
                         altArmy = Army.getAlt(army)

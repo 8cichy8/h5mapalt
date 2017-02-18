@@ -1,7 +1,10 @@
+******* 1.4.0 - 2017.02.18
+Optionally can change only random blocks (creatures/artifacts)
+
 ******* 1.3.0 - 2017.02.17
 Changed main frame title to "MMH55 Mapmixer"
 Changed labels
-Clearing "artifactIDs" node, when swapping artifacts (to allow all artifacts). 
+Clearing "artifactIDs" node, when swapping artifacts (to allow all artifacts)
 Can enable scripts (needed by mmh55 - to work in multiplayer)
 Author and version are now in variables and prints in help
 Repaired group ratio from gui

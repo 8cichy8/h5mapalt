@@ -14,6 +14,7 @@ class MyFrame(wx.Frame):
         self.mapFileEdit = None
         self.mapFileBtn = None
         self.creaChangeCheck = None
+        self.creaChangeOnlyRandomCheck = None
         self.creaRandomCheck = None
         self.creaNcfCheck = None
         self.creaPowerRatioSpin = None
@@ -24,7 +25,9 @@ class MyFrame(wx.Frame):
         self.creaMoodHostileCheck = None
         self.creaMoodWildCheck = None
         self.artChangeCheck = None
+        self.artChangeOnlyRandomCheck = None
         self.artRandomCheck = None
+        self.enableScriptsCheck = None
         self.okBtn = None
         
         
@@ -56,11 +59,22 @@ class MyFrame(wx.Frame):
         
         creaBox = wx.StaticBox(self, wx.ID_ANY, "creatures")
         creaSizer = wx.BoxSizer(wx.VERTICAL)
+        creaHeadSizer = wx.BoxSizer(wx.HORIZONTAL)
         
         self.creaChangeCheck = wx.CheckBox(creaBox, wx.ID_ANY, "swap")
         self.creaChangeCheck.SetValue(True)
         self.Bind(wx.EVT_CHECKBOX, self.OnCreaChangeCheckChange, self.creaChangeCheck)
-        creaSizer.Add(self.creaChangeCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
+        creaHeadSizer.Add(self.creaChangeCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
+        
+        creaHeadSizer.AddStretchSpacer(1)
+        comp = wx.StaticLine(creaBox, wx.ID_ANY, style=wx.LI_VERTICAL)
+        creaHeadSizer.Add(comp, 0, wx.ALL|wx.EXPAND, 5)
+        creaHeadSizer.AddStretchSpacer(1)
+        
+        self.creaChangeOnlyRandomCheck = wx.CheckBox(creaBox, wx.ID_ANY, "only random blocks")
+        creaHeadSizer.Add(self.creaChangeOnlyRandomCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
+        
+        creaSizer.Add(creaHeadSizer, 0, wx.ALL|wx.EXPAND, 5)
         
         comp = wx.StaticLine(creaBox, wx.ID_ANY)
         creaSizer.Add(comp, 0, wx.ALL|wx.EXPAND, 5)
@@ -132,11 +146,22 @@ class MyFrame(wx.Frame):
         
         artBox = wx.StaticBox(self, wx.ID_ANY, "artifacts")
         artSizer = wx.BoxSizer(wx.VERTICAL)
+        artHeadSizer = wx.BoxSizer(wx.HORIZONTAL)
         
         self.artChangeCheck = wx.CheckBox(artBox, wx.ID_ANY, "swap")
         self.artChangeCheck.SetValue(True)
         self.Bind(wx.EVT_CHECKBOX, self.OnArtChangeCheckChange, self.artChangeCheck)
-        artSizer.Add(self.artChangeCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
+        artHeadSizer.Add(self.artChangeCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
+        
+        artHeadSizer.AddStretchSpacer(1)
+        comp = wx.StaticLine(artBox, wx.ID_ANY, style=wx.LI_VERTICAL)
+        artHeadSizer.Add(comp, 0, wx.ALL|wx.EXPAND, 5)
+        artHeadSizer.AddStretchSpacer(1)
+        
+        self.artChangeOnlyRandomCheck = wx.CheckBox(artBox, wx.ID_ANY, "only random blocks")
+        artHeadSizer.Add(self.artChangeOnlyRandomCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
+        
+        artSizer.Add(artHeadSizer, 0, wx.ALL|wx.EXPAND, 5)
         
         comp = wx.StaticLine(artBox, wx.ID_ANY)
         artSizer.Add(comp, 0, wx.ALL|wx.EXPAND, 5)
@@ -188,6 +213,7 @@ class MyFrame(wx.Frame):
     
     def RefreshCreatureInputsState(self):
         enable = self.creaChangeCheck.GetValue()
+        self.creaChangeOnlyRandomCheck.Enable(enable)
         self.creaRandomCheck.Enable(enable)
         self.creaNcfCheck.Enable(enable)
         self.creaPowerRatioSpin.Enable(enable)
@@ -215,6 +241,7 @@ class MyFrame(wx.Frame):
     
     def RefreshArtifactInputsState(self):
         enable = self.artChangeCheck.GetValue()
+        self.artChangeOnlyRandomCheck.Enable(enable)
         self.artRandomCheck.Enable(enable)
     
     def OnCreaChangeCheckChange(self, pEvent):
@@ -230,12 +257,13 @@ class MyFrame(wx.Frame):
     
     def OnCreaMoodCheckChange(self, pEvent):
         self.RefreshCreatureInputsState()
-    
+        
     def OnEnableScriptsCheckChange(self, pEvent):
         self.CheckOkButtonState()
     
     def CheckOkButtonState(self):
-        enableOkButton = self.creaChangeCheck.GetValue() or self.artChangeCheck.GetValue() or self.enableScriptsCheck.GetValue()
+        enableOkButton = (self.creaChangeCheck.GetValue() or self.artChangeCheck.GetValue() 
+                            or self.enableScriptsCheck.GetValue())
         self.okBtn.Enable(enableOkButton)
     
     def OnMapFileBtnClick(self, pEvent):
@@ -249,7 +277,9 @@ class MyFrame(wx.Frame):
         argArtChange = "--artChange=" + ("true" if self.artChangeCheck.GetValue() else "false")
         argCreaChange = "--creaChange=" + ("true" if self.creaChangeCheck.GetValue() else "false")
 
+        argArtChangeOnlyRandom = "--artChangeOnlyRandom=" + ("true" if self.artChangeOnlyRandomCheck.GetValue() else "false")
         argArtRandom = "--artRandom=" + ("true" if self.artRandomCheck.GetValue() else "false")
+        argCreaChangeOnlyRandom = "--creaChangeOnlyRandom=" + ("true" if self.creaChangeOnlyRandomCheck.GetValue() else "false")
         argCreaRandom = "--creaRandom=" + ("true" if self.creaRandomCheck.GetValue() else "false")
         
         argCreaPowerRatio = "--creaPowerRatio=" + str(self.creaPowerRatioSpin.GetValue())
@@ -268,10 +298,10 @@ class MyFrame(wx.Frame):
         argGuiIsShown = "--guiIsShown=true"
         
         args = [
-            argMapFile, argArtChange, argCreaChange, argArtRandom, 
-            argCreaRandom, argCreaPowerRatio, argCreaGroupRatio, 
-            argCreaNeutralReduction, argCreaNCF, argCreaMoodRatio, 
-            argEnableScripts, argGuiIsShown
+            argMapFile, argArtChange, argCreaChange, argArtChangeOnlyRandom, argArtRandom, 
+            argCreaChangeOnlyRandom, argCreaRandom, argCreaPowerRatio, argCreaGroupRatio, 
+            argCreaNeutralReduction, argCreaNCF, argCreaMoodRatio, argEnableScripts, 
+            argGuiIsShown
         ]
         try:
             mapalt.run(args)
