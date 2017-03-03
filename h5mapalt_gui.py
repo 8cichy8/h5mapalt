@@ -20,6 +20,7 @@ class MyFrame(wx.Frame):
         self.creaPowerRatioSpin = None
         self.creaNeutralReductionSpin = None
         self.creaGroupRatioSlider = None
+        self.creaMoodChangeCheck = None
         self.creaMoodFriendlyCheck = None
         self.creaMoodAggressiveCheck = None
         self.creaMoodHostileCheck = None
@@ -28,6 +29,8 @@ class MyFrame(wx.Frame):
         self.artChangeOnlyRandomCheck = None
         self.artRandomCheck = None
         self.enableScriptsCheck = None
+        self.waterChangeCheck = None
+        self.dwellChangeCheck = None
         self.okBtn = None
         
         
@@ -113,28 +116,40 @@ class MyFrame(wx.Frame):
         # moods
         
         creaMoodBox = wx.StaticBox(self, wx.ID_ANY, "creatures mood")
-        creaMoodBoxSizer = wx.GridSizer(2)
+        creaMoodSizer = wx.BoxSizer(wx.VERTICAL)
+        
+        self.creaMoodChangeCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "swap")
+        self.creaMoodChangeCheck.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodChangeCheckChange, self.creaMoodChangeCheck)
+        creaMoodSizer.Add(self.creaMoodChangeCheck, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
+        
+        comp = wx.StaticLine(creaMoodBox, wx.ID_ANY)
+        creaMoodSizer.Add(comp, 0, wx.ALL|wx.EXPAND, 5)
+        
+        creaMoodGridSizer = wx.GridSizer(2)
         
         self.creaMoodFriendlyCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "friendly")
         self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodFriendlyCheck)
-        creaMoodBoxSizer.Add(self.creaMoodFriendlyCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        creaMoodGridSizer.Add(self.creaMoodFriendlyCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         self.creaMoodAggressiveCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "aggressive")
         self.creaMoodAggressiveCheck.SetValue(True)
         self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodAggressiveCheck)
-        creaMoodBoxSizer.Add(self.creaMoodAggressiveCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        creaMoodGridSizer.Add(self.creaMoodAggressiveCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         self.creaMoodHostileCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "hostile")
         self.creaMoodHostileCheck.SetValue(True)
         self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodHostileCheck)
-        creaMoodBoxSizer.Add(self.creaMoodHostileCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        creaMoodGridSizer.Add(self.creaMoodHostileCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         self.creaMoodWildCheck = wx.CheckBox(creaMoodBox, wx.ID_ANY, "wild")
         self.Bind(wx.EVT_CHECKBOX, self.OnCreaMoodCheckChange, self.creaMoodWildCheck)
-        creaMoodBoxSizer.Add(self.creaMoodWildCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        creaMoodGridSizer.Add(self.creaMoodWildCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        
+        creaMoodSizer.Add(creaMoodGridSizer, 1, wx.EXPAND, 0)
         
         creaMoodBorderSizer = wx.BoxSizer(wx.VERTICAL)
-        creaMoodBorderSizer.Add(creaMoodBoxSizer, 0, wx.TOP|wx.BOTTOM|wx.EXPAND, 20)
+        creaMoodBorderSizer.Add(creaMoodSizer, 0, wx.TOP|wx.BOTTOM|wx.EXPAND, 20)
         creaMoodBox.SetSizerAndFit(creaMoodBorderSizer)
         leftSizer.Add(creaMoodBox, 0, wx.ALL|wx.EXPAND, 5)
         
@@ -198,6 +213,29 @@ class MyFrame(wx.Frame):
         # mmh55 end
         
         
+        # other
+        
+        otherBox = wx.StaticBox(self, wx.ID_ANY, "other")
+        otherSizer = wx.BoxSizer(wx.VERTICAL)
+        
+        self.waterChangeCheck = wx.CheckBox(otherBox, wx.ID_ANY, "swap water objects")
+        self.waterChangeCheck.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.OnWaterChangeCheckChange, self.waterChangeCheck)
+        otherSizer.Add(self.waterChangeCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        
+        self.dwellChangeCheck = wx.CheckBox(otherBox, wx.ID_ANY, "swap dwellings")
+        self.dwellChangeCheck.SetValue(True)
+        self.Bind(wx.EVT_CHECKBOX, self.OnDwellChangeCheckChange, self.dwellChangeCheck)
+        otherSizer.Add(self.dwellChangeCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        
+        otherBorderSizer = wx.BoxSizer(wx.VERTICAL)
+        otherBorderSizer.Add(otherSizer, 0, wx.TOP|wx.BOTTOM|wx.EXPAND, 20)
+        otherBox.SetSizerAndFit(otherBorderSizer)
+        rightSizer.Add(otherBox, 0, wx.ALL|wx.EXPAND, 5)
+        
+        # other end
+        
+        
         self.okBtn = wx.Button(self, wx.ID_ANY, "Ok")
         self.Bind(wx.EVT_BUTTON, self.OnOkBtnClick, self.okBtn)
         mainSizer.Add(self.okBtn, 0, wx.ALL|wx.ALIGN_RIGHT, 5)
@@ -222,6 +260,9 @@ class MyFrame(wx.Frame):
         self.creaNeutralReductionSpin.Enable(randomEnable)
         self.creaGroupRatioSlider.Enable(randomEnable)
         
+        self.creaMoodChangeCheck.Enable(enable)
+        creaMoodChangeEnable = enable and self.creaMoodChangeCheck.GetValue()
+        
         # at least one mood should be checked
         checkedCreaMoodCount = 0
         creaMoodInputs = [
@@ -234,8 +275,8 @@ class MyFrame(wx.Frame):
             if creaMoodInput.GetValue():
                 checkedCreaMoodCount += 1
         for creaMoodInput in creaMoodInputs:
-            if not enable or checkedCreaMoodCount != 1:
-                creaMoodInput.Enable(enable)
+            if not creaMoodChangeEnable or checkedCreaMoodCount != 1:
+                creaMoodInput.Enable(creaMoodChangeEnable)
             else:
                 creaMoodInput.Enable(not creaMoodInput.GetValue())
     
@@ -247,6 +288,9 @@ class MyFrame(wx.Frame):
     def OnCreaChangeCheckChange(self, pEvent):
         self.RefreshCreatureInputsState()
         self.CheckOkButtonState()
+        
+    def OnCreaMoodChangeCheckChange(self, pEvent):
+        self.RefreshCreatureInputsState()
         
     def OnCreaRandomCheckChange(self, pEvent):
         self.RefreshCreatureInputsState()
@@ -261,9 +305,16 @@ class MyFrame(wx.Frame):
     def OnEnableScriptsCheckChange(self, pEvent):
         self.CheckOkButtonState()
     
+    def OnWaterChangeCheckChange(self, pEvent):
+        self.CheckOkButtonState()
+    
+    def OnDwellChangeCheckChange(self, pEvent):
+        self.CheckOkButtonState()
+    
     def CheckOkButtonState(self):
         enableOkButton = (self.creaChangeCheck.GetValue() or self.artChangeCheck.GetValue() 
-                            or self.enableScriptsCheck.GetValue())
+                            or self.enableScriptsCheck.GetValue() or self.waterChangeCheck.GetValue() 
+                            or self.dwellChangeCheck.GetValue())
         self.okBtn.Enable(enableOkButton)
     
     def OnMapFileBtnClick(self, pEvent):
@@ -287,6 +338,7 @@ class MyFrame(wx.Frame):
         argCreaNeutralReduction = "--creaNeutralReduction=" + str(self.creaNeutralReductionSpin.GetValue())
         argCreaNCF = "--creaNCF=" + ("true" if self.creaNcfCheck.GetValue() else "false")
         
+        argCreaMoodChange = "--creaMoodChange=" + ("true" if self.creaMoodChangeCheck.GetValue() else "false")
         argCreaMoodRatio = "--creaMoodRatio="
         argCreaMoodRatio += ("1" if self.creaMoodFriendlyCheck.GetValue() else "0")
         argCreaMoodRatio += "," + ("1" if self.creaMoodAggressiveCheck.GetValue() else "0")
@@ -294,14 +346,16 @@ class MyFrame(wx.Frame):
         argCreaMoodRatio += "," + ("1" if self.creaMoodWildCheck.GetValue() else "0")
         
         argEnableScripts = "--enableScripts=" + ("true" if self.enableScriptsCheck.GetValue() else "false")
+        argWaterChange = "--waterChange=" + ("true" if self.waterChangeCheck.GetValue() else "false")
+        argDwellChange = "--dwellChange=" + ("true" if self.dwellChangeCheck.GetValue() else "false")
         
         argGuiIsShown = "--guiIsShown=true"
         
         args = [
             argMapFile, argArtChange, argCreaChange, argArtChangeOnlyRandom, argArtRandom, 
             argCreaChangeOnlyRandom, argCreaRandom, argCreaPowerRatio, argCreaGroupRatio, 
-            argCreaNeutralReduction, argCreaNCF, argCreaMoodRatio, argEnableScripts, 
-            argGuiIsShown
+            argCreaNeutralReduction, argCreaNCF, argCreaMoodChange, argCreaMoodRatio, 
+            argEnableScripts, argWaterChange, argDwellChange, argGuiIsShown
         ]
         try:
             mapalt.run(args)

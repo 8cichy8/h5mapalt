@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 
 __author__ = "Zich Robert (cichy)"
-__version__ = "1.4.0"
+__version__ = "1.5.0"
 
 
 def printHelp():
@@ -37,7 +37,7 @@ Creatures:
 
 Options:
     --artChange=true                To change artifacts(art).
-    --creaChange=true               To change creature(crea).
+    --creaChange=true               To change creatures(crea).
     
     --artChangeOnlyRandom=false     To change only random art.
     --artRandom=false               To randomize art.
@@ -45,6 +45,7 @@ Options:
     --creaRandom=false              To randomize crea.
     --creaPowerRatio=1.0            Will modify crea power.
     --creaGroupRatio=0.55           Will modify chance to crea be group (1.0 == highest, but not 100%).
+    --creaMoodChange=true           To change creas mood
     --creaMoodRatio=0,3,2,1         Will modify crea mood (probably does not affect groups).
                                         - mood order: FRIENDLY,AGGRESSIVE,HOSTILE,WILD
                                         - value "1,1,0,0" would give us 50% FRIENDLY and 50% AGGRESSIVE
@@ -58,16 +59,23 @@ Options:
                                         - will enable scripts only if not already enabled
                                         - will not disable scripts
                                         - needed by mmh55 (to work in multiplayer)
+    --waterChange=true              To change some water objects
+    --dwellChange=true              To change high tier (random) dwellings(dwell)
+    --dwellRatio=1,1,0,0            To choose possible tiers(and theirs weight) of dwell
+                                        - tier order: 4,5,6,7
+                                        - value "1,1,0,0" would give us 50% T4 and 50% T5
     
     --nogui                         To run console version (in gui version)
     --pathToGameFolder=../          Path to game folder.
     --loadMapFromBck=true           To load map from backup file (backup file is generated with first change).
                                         - better to leave true
+    --createMapBck=true             To create backup of original map (only if not exist)
     
     --logArtInit=false              To log art init info.
     --logArtChange=false            To log art change info.
     --logCreaInit=false             To log crea init info.
     --logCreaChange=false           To log crea change info.
+    --logWaterChange=false          To log water objects change info.
     --logMapInfo=false              To log some map(old/new) info.
     --logWarnings=false             To log warnings/errors.
 
@@ -86,6 +94,7 @@ def resetArgs():
     g["mapFile"] = None
     g["pathToGameFolder"] = "../"
     g["loadMapFromBck"] = "true"
+    g["createMapBck"] = "true"
 
     g["artChange"] = "true"
     g["creaChange"] = "true"
@@ -94,6 +103,7 @@ def resetArgs():
     g["artRandom"] = "false"
     g["creaChangeOnlyRandom"] = "false"
     g["creaRandom"] = "false"
+    g["creaMoodChange"] = "true"
     g["creaMoodRatio"] = "0,3,2,1"
     g["creaPowerRatio"] = "1.0"
     g["creaGroupRatio"] = "0.55"
@@ -101,11 +111,15 @@ def resetArgs():
     g["creaNCF"] = "false"
     
     g["enableScripts"] = "true"
+    g["waterChange"] = "true"
+    g["dwellChange"] = "true"
+    g["dwellRatio"] = "1,1,0,0"
     
     g["logArtInit"] = "false"
     g["logArtChange"] = "false"
     g["logCreaInit"] = "false"
     g["logCreaChange"] = "false"
+    g["logWaterChange"] = "false"
     g["logMapInfo"] = "false"
     g["logWarnings"] = "false"
     
@@ -113,6 +127,7 @@ def resetArgs():
     g["guiIsShown"] = False
     g["creaNeutralChanceList"] = None
     g["creaMoodList"] = None
+    g["dwellList"] = None
     g["dataFolder"] = None
     g["mainArchFile"] = None
 
@@ -141,12 +156,13 @@ def parseArgs(pArgs):
     # parse args
     ignoreArgs = ["--nogui"]
     validArgs = [
-        "pathToGameFolder", "loadMapFromBck", "artChange", "creaChange", 
-        "artChangeOnlyRandom", "artRandom", "creaChangeOnlyRandom", 
-        "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
+        "pathToGameFolder", "loadMapFromBck", "createMapBck", "artChange", 
+        "creaChange", "artChangeOnlyRandom", "artRandom", "creaChangeOnlyRandom", 
+        "creaMoodChange", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
         "creaNeutralReduction", "creaRandom", "creaNCF", "enableScripts", 
-        "logArtInit", "logArtChange", "logCreaInit", "logCreaChange", 
-        "logMapInfo", "logWarnings", "guiIsShown"
+        "waterChange", "dwellChange", "dwellRatio", "logArtInit", "logArtChange", 
+        "logCreaInit", "logCreaChange", "logWaterChange", "logMapInfo", "logWarnings", 
+        "guiIsShown"
     ]
     for arg in pArgs:
         if arg not in ignoreArgs:
@@ -172,6 +188,7 @@ def parseArgs(pArgs):
     trueStrList = ["true"]
 
     g["loadMapFromBck"] = g["loadMapFromBck"] in trueStrList
+    g["createMapBck"] = g["createMapBck"] in trueStrList
 
     g["artChange"] = g["artChange"] in trueStrList
     g["artChangeOnlyRandom"] = g["artChangeOnlyRandom"] in trueStrList
@@ -179,14 +196,18 @@ def parseArgs(pArgs):
     g["creaChangeOnlyRandom"] = g["creaChangeOnlyRandom"] in trueStrList
     g["artRandom"] = g["artRandom"] in trueStrList
     g["creaRandom"] = g["creaRandom"] in trueStrList
+    g["creaMoodChange"] = g["creaMoodChange"] in trueStrList
     g["creaNCF"] = g["creaNCF"] in trueStrList
 
     g["enableScripts"] = g["enableScripts"] in trueStrList
+    g["waterChange"] = g["waterChange"] in trueStrList
+    g["dwellChange"] = g["dwellChange"] in trueStrList
     
     g["logArtInit"] = g["logArtInit"] in trueStrList
     g["logArtChange"] = g["logArtChange"] in trueStrList
     g["logCreaInit"] = g["logCreaInit"] in trueStrList
     g["logCreaChange"] = g["logCreaChange"] in trueStrList
+    g["logWaterChange"] = g["logWaterChange"] in trueStrList
     g["logMapInfo"] = g["logMapInfo"] in trueStrList
     g["logWarnings"] = g["logWarnings"] in trueStrList
     g["guiIsShown"] = g["guiIsShown"] in trueStrList
@@ -208,23 +229,50 @@ def parseArgs(pArgs):
             g["creaNeutralChanceList"].append(False)
 
         # fill creaMoodList
-        basicMoodList = ["MONSTER_MOOD_FRIENDLY", "MONSTER_MOOD_AGGRESSIVE", "MONSTER_MOOD_HOSTILE", "MONSTER_MOOD_WILD"]
-        basicCourageList = ["MONSTER_COURAGE_ALWAYS_JOIN", "MONSTER_COURAGE_ALWAYS_FIGHT", "MONSTER_COURAGE_CAN_FLEE_JOIN"]
         g["creaMoodList"] = []
+        if creaMoodChange:
+            basicMoodList = ["MONSTER_MOOD_FRIENDLY", "MONSTER_MOOD_AGGRESSIVE", "MONSTER_MOOD_HOSTILE", "MONSTER_MOOD_WILD"]
+            basicCourageList = ["MONSTER_COURAGE_ALWAYS_JOIN", "MONSTER_COURAGE_ALWAYS_FIGHT", "MONSTER_COURAGE_CAN_FLEE_JOIN"]
 
-        moodRatioParts = creaMoodRatio.split(",")
-        if len(moodRatioParts) != 4:
+            moodRatioParts = creaMoodRatio.split(",")
+            if len(moodRatioParts) != 4:
+                printHelp()
+                Log.error("Value error!")
+            for moodIndex, moodRationPart in enumerate(moodRatioParts):
+                try:
+                    moodRationPart = int(moodRationPart)
+                    if moodRationPart > 0:
+                        for i in range(moodRationPart):
+                            g["creaMoodList"].append(basicMoodList[moodIndex])
+                except ValueError:
+                    pass
+            if len(g["creaMoodList"]) == 0:
+                printHelp()
+                Log.error("Value error!")
+    
+    # fill dwellList
+    g["dwellList"] = []
+    if dwellChange:
+        basicDwellList = [
+            "/MapObjects/Random/RandomDwelling4.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Random/RandomDwelling5.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Random/RandomDwelling6.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Random/RandomDwelling7.xdb#xpointer(/AdvMapDwellingShared)"
+        ]
+        
+        dwellRatioParts = dwellRatio.split(",")
+        if len(dwellRatioParts) != 4:
             printHelp()
             Log.error("Value error!")
-        for moodIndex, moodRationPart in enumerate(moodRatioParts):
+        for dwellIndex, dwellRatioPart in enumerate(dwellRatioParts):
             try:
-                moodRationPart = int(moodRationPart)
-                if moodRationPart > 0:
-                    for i in range(moodRationPart):
-                        g["creaMoodList"].append(basicMoodList[moodIndex])
+                dwellRatioPart = int(dwellRatioPart)
+                if dwellRatioPart > 0:
+                    for i in range(dwellRatioPart):
+                        g["dwellList"].append(basicDwellList[dwellIndex])
             except ValueError:
                 pass
-        if len(g["creaMoodList"]) == 0:
+        if len(g["dwellList"]) == 0:
             printHelp()
             Log.error("Value error!")
     
@@ -736,7 +784,11 @@ class Army:
     def getAlt(pClass, pArmy):
         # create alt army
         altArmy = Army()
-        altArmy.mMood = rand.choice(creaMoodList) # sel mood
+        altArmy.mMood = pArmy.mMood
+        altArmy.mCourage = pArmy.mCourage
+        
+        if creaMoodChange:
+            altArmy.mMood = rand.choice(creaMoodList) # sel mood
         
         armyPower = pArmy.getPower() * creaPowerRatio # sel new power
         isGroup = not creaRandom and rand.random() < creaGroupRatio and armyPower  > 100
@@ -921,7 +973,7 @@ class Map:
             # write map xml tree to temp file
             self.mTree.write(os.path.join(self.mTempFolder, self.mDataFileName), "UTF-8", True)
             
-            if os.path.exists(self.mFileName) and not os.path.exists(self.mFileName + self.mBckExt):
+            if createMapBck and os.path.exists(self.mFileName) and not os.path.exists(self.mFileName + self.mBckExt):
                 # backup does not exist - create it - before we change original map file
                 os.rename(self.mFileName, self.mFileName + self.mBckExt)
             
@@ -1078,6 +1130,223 @@ class Map:
                 print("tier: {}".format(i))
                 print(tierHighArmy[i]["army"])
     
+    def changeWaterObjects(self):
+        if self.mTree is None:
+            return
+        
+        # water objects maps
+        oneSquareWaterNormalTreasShared = [
+            "/MapObjects/Floatsam.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)"
+        ]
+        oneSquareWaterExpTreasShared = [
+            "/MapObjects/Sea_Chest.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)"
+        ]
+        oneSquareWaterSpecialTreasShared = [
+            "/MapObjects/Water/Shipwrecks_2/PeasantWreck.xdb#xpointer(/AdvMapTreasureShared)",
+            "/MapObjects/Water/Shipwrecks_2/FootmanWreck.xdb#xpointer(/AdvMapTreasureShared)"
+        ]
+        oneSquareWaterTreasShared = oneSquareWaterNormalTreasShared[:] + oneSquareWaterExpTreasShared[:] + oneSquareWaterSpecialTreasShared[:]
+        oneSquareWaterObjsShared = [
+            "/MapObjects/Water/Damaged_Boats_2/Unkempt_Junk.xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Water/Damaged_Boats_2/Unkempt_Galley.xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Water/Damaged_Boats_2/Unkempt_Galleon.xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Water/Damaged_Boats_2/Demolish_Galleon.xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Water/Damaged_Boats_2/Demolish_Galley.xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Water/Damaged_Boats_2/Demolish_Junk.xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Sirens.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Mermaids.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "/MapObjects/Buoy.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)"
+        ]
+        
+        oneSquareWaterItems = []
+        oldOneSquareWaterItemsCount = {}
+        waterExpTreaCount = 0
+        
+        root = self.mTree.getroot()
+        items = root.find("objects")
+        
+        # load water objects
+        for item in items:
+            itemHref = item.get("href", "")
+            isTreasure = itemHref == "#n:inline(AdvMapTreasure)"
+            isBuilding = itemHref == "#n:inline(AdvMapBuilding)"
+            if isTreasure or isBuilding:
+                innerItem = item.find("AdvMapTreasure" if isTreasure else "AdvMapBuilding")
+                if innerItem is not None:
+                    innerItemShared = innerItem.find("Shared")
+                    if innerItemShared is not None:
+                        innerItemSharedValue = innerItemShared.get("href", "")
+                        if ((isTreasure and innerItemSharedValue in oneSquareWaterTreasShared) 
+                            or (isBuilding and innerItemSharedValue in oneSquareWaterObjsShared)):
+                            
+                            if isTreasure and innerItemSharedValue in oneSquareWaterExpTreasShared:
+                                waterExpTreaCount += 1
+                            
+                            if innerItemSharedValue not in oldOneSquareWaterItemsCount:
+                                oldOneSquareWaterItemsCount[innerItemSharedValue] = 0
+                            oldOneSquareWaterItemsCount[innerItemSharedValue] += 1
+                            
+                            # remove some sub elements
+                            tagsToRemove = ["IsCustom", "Amount", "MessageFileRef", "PlayerID", "GroupID", "showCameras"]
+                            for tagToRemove in tagsToRemove:
+                                someItem = innerItem.find(tagToRemove)
+                                if someItem is not None:
+                                    innerItem.remove(someItem)
+                            
+                            oneSquareWaterItems.append({"item": item, "innerItem": innerItem})
+        
+        # ratios
+        waterObjDelRatio = 0.0 #+ (rand.random() / 20)   # from all water objects
+        waterExpTreaRatio = 0.15 + (rand.random() / 10)   # from all water objects
+        if waterExpTreaCount > 0:
+            waterExpTreaRatio = waterExpTreaCount / len(oneSquareWaterItems)
+            #if waterExpTreaRatio >= 0.02:
+            #    waterExpTreaRatio += (rand.random() / 25) - 0.02
+        waterExpTreaRatio = (waterExpTreaRatio * (1 - waterObjDelRatio)) + waterObjDelRatio
+        waterTreaRatio = 0.65 + (rand.random() / 20)     # from rest
+        waterSpecialTreaRatio = 0.08  + (rand.random() / 20)    # from trea objects
+        
+        # counts
+        waterObjDelCount = 0
+        waterTreaCount = 0
+        waterExpTreaCount = 0
+        waterSpecialTreaCount = 0
+        waterBuildCount = 0
+        
+        # change some water objects on map
+        for oneSquareWaterItem in oneSquareWaterItems:
+            item = oneSquareWaterItem["item"]
+            innerItem = oneSquareWaterItem["innerItem"]
+            innerItemShared = innerItem.find("Shared")
+            
+            randNum =rand.random()
+            if randNum < waterObjDelRatio:
+                # remove some water items
+                waterObjDelCount += 1
+                items.remove(item)
+            else:
+                isExpTreasure = randNum < waterExpTreaRatio
+                isTreasure = isExpTreasure or rand.random() < waterTreaRatio
+                if isTreasure:
+                    # treasure
+                    waterTreaCount += 1
+                    item.set("href", "#n:inline(AdvMapTreasure)")
+                    innerItem.tag = "AdvMapTreasure"
+                    if isExpTreasure:
+                        # exp treasure
+                        waterExpTreaCount += 1
+                        innerItemShared.set("href", rand.choice(oneSquareWaterExpTreasShared))
+                    else:
+                        randNum =rand.random()
+                        if randNum < waterSpecialTreaRatio:
+                            # special treasure
+                            waterSpecialTreaCount += 1
+                            innerItemShared.set("href", rand.choice(oneSquareWaterSpecialTreasShared))
+                        else:
+                            # normal treasure
+                            innerItemShared.set("href", rand.choice(oneSquareWaterNormalTreasShared))
+                    
+                    # add some sub elements
+                    ET.SubElement(innerItem, "IsCustom").text = "false"
+                    ET.SubElement(innerItem, "Amount").text = "0"
+                    ET.SubElement(innerItem, "MessageFileRef").set("href", "")
+                else:
+                    # building
+                    waterBuildCount += 1
+                    item.set("href", "#n:inline(AdvMapBuilding)")
+                    innerItem.tag = "AdvMapBuilding"
+                    innerItemShared.set("href", rand.choice(oneSquareWaterObjsShared))
+                    
+                    # add some sub elements
+                    ET.SubElement(innerItem, "PlayerID").text = "PLAYER_NONE"
+                    captureTriggerItem = ET.SubElement(innerItem, "CaptureTrigger")
+                    captureTriggerActionItem = ET.SubElement(captureTriggerItem, "Action")
+                    ET.SubElement(captureTriggerActionItem, "FunctionName")
+                    ET.SubElement(innerItem, "GroupID").text = "0"
+                    ET.SubElement(innerItem, "showCameras")
+        
+        oldWaterObjCount = len(oneSquareWaterItems)
+        
+        print("water objects changed: {}".format(oldWaterObjCount))
+        
+        if logWaterChange and oldWaterObjCount > 0:
+            def getAllCountsFromOldMap(pListShared):
+                totalValue = 0
+                for shared in pListShared:
+                    if shared in oldOneSquareWaterItemsCount:
+                        totalValue += oldOneSquareWaterItemsCount[shared]
+                return totalValue 
+            
+            oldWaterTreaCount = getAllCountsFromOldMap(oneSquareWaterTreasShared)
+            oldWaterExpTreaCount = getAllCountsFromOldMap(oneSquareWaterExpTreasShared)
+            oldWaterSpecialTreaCount = getAllCountsFromOldMap(oneSquareWaterSpecialTreasShared)
+            oldWaterNormalTreaCount = oldWaterTreaCount - oldWaterExpTreaCount - oldWaterSpecialTreaCount
+            oldWaterBuildCount = getAllCountsFromOldMap(oneSquareWaterObjsShared)
+            
+            waterObjCount = oldWaterObjCount - waterObjDelCount
+            waterNormalTreaCount = waterTreaCount - waterExpTreaCount - waterSpecialTreaCount
+            
+            print("\nWATER OBJECTS COUNT (old map):")
+            print("water objects - count: {}".format(oldWaterObjCount))
+            if oldWaterObjCount > 0:
+                print("water treasures - count: {} ({:.2f}%) normal: {} ({:.2f}%) exp: {} ({:.2f}%) special: {} ({:.2f}%)".format(
+                        oldWaterTreaCount, oldWaterTreaCount / oldWaterObjCount * 100, 
+                        oldWaterNormalTreaCount, (oldWaterNormalTreaCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0, 
+                        oldWaterExpTreaCount, (oldWaterExpTreaCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0, 
+                        oldWaterSpecialTreaCount, (oldWaterSpecialTreaCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0))
+                print("water buildings - count: {} ({:.2f}%)".format(oldWaterBuildCount, oldWaterBuildCount / oldWaterObjCount * 100))
+            print("")
+            
+            print("\nWATER OBJECTS COUNT (new map):")
+            print("water objects - count: {} changed: {} ({:.2f}%) removed: {} ({:.2f}%)".format(
+                    oldWaterObjCount, 
+                    waterObjCount, waterObjCount / oldWaterObjCount * 100,
+                    waterObjDelCount, waterObjDelCount / oldWaterObjCount * 100))
+            if waterObjCount > 0:
+                print("water treasures - count: {} ({:.2f}%) normal: {} ({:.2f}%) exp: {} ({:.2f}%) special: {} ({:.2f}%)".format(
+                        waterTreaCount, waterTreaCount / waterObjCount * 100, 
+                        waterNormalTreaCount, (waterNormalTreaCount / waterTreaCount * 100) if waterTreaCount > 0 else 0, 
+                        waterExpTreaCount, (waterExpTreaCount / waterTreaCount * 100) if waterTreaCount > 0 else 0, 
+                        waterSpecialTreaCount, (waterSpecialTreaCount / waterTreaCount * 100) if waterTreaCount > 0 else 0))
+                print("water buildings - count: {} ({:.2f}%)".format(waterBuildCount, waterBuildCount / waterObjCount * 100))
+            print("")
+    
+    def changeDwellings(self):
+        if self.mTree is None:
+            return
+        
+        highTierDwellsShared = [
+            "/MapObjects/Random/RandomDwelling4.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Random/RandomDwelling5.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Random/RandomDwelling6.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Random/RandomDwelling7.xdb#xpointer(/AdvMapDwellingShared)"
+        ]
+        
+        townDwellShared = rand.choice(dwellList)
+        otherDwellShared = rand.choice(dwellList)
+        dwellsChanged = 0
+        
+        root = self.mTree.getroot()
+        allDwells = root.findall("./objects/Item[@href='#n:inline(AdvMapDwelling)']/AdvMapDwelling")
+        
+        for dwell in allDwells:
+            sharedNode = dwell.find("Shared")
+            if sharedNode is not None:
+                sharedValue = sharedNode.get("href", "")
+                if sharedValue in highTierDwellsShared:
+                    dwellsChanged += 1
+                    
+                    linkTownHref = dwell.find("LinkToTown").get("href", "")
+                    if len(linkTownHref) > 0:
+                        sharedNode.set("href", townDwellShared)
+                    else:
+                        sharedNode.set("href", otherDwellShared)
+                    
+                    dwell.find("RandomCreatures").text = "false"
+                    dwell.find("creaturesEnabled").clear()
+        
+        print("high tier dwellings changed: {}".format(dwellsChanged))
+    
     def enableScripts(self):
         if self.mTree is None:
             return
@@ -1099,18 +1368,24 @@ def run(pArgs=None):
         pArgs = sys.argv[1:]
     parseArgs(pArgs)
     
-    if artChange or creaChange or enableScripts:
+    if artChange or creaChange or enableScripts or waterChange or dwellChange:
         Artifact.init()
         Creature.init()
         
         gameMap = Map(mapFile)
         gameMap.load()
+        
         if artChange:
             gameMap.changeArtifacts()
         if creaChange:
             gameMap.changeCreatures()
         if enableScripts:
             gameMap.enableScripts()
+        if waterChange:
+            gameMap.changeWaterObjects()
+        if dwellChange:
+            gameMap.changeDwellings()
+        
         gameMap.save()
 
 
