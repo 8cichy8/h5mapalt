@@ -1,12 +1,13 @@
-# h5mapalt (MMH55_Mapmixer) #
+h5mapalt (MMH55_Mapmixer)
 
-### Dependencies ###
+This tool can change homm5/mmh55 maps (swap creatures/artifacts and other).
+Place it in your "bin" or "Maps" folder.
 
-* python3
-* wxPython Phoenix [(snapshots)](https://wxpython.org/Phoenix/snapshot-builds/)
+Dependencies:
+    python3
+    wxPython Phoenix [(snapshots)](https://wxpython.org/Phoenix/snapshot-builds/)
 
-### To build exe ###
-
-* pip3 install pyinstaller
-* pyinstaller --onefile h5mapalt_gui.py
+To build exe:
+    pip3 install pyinstaller
+    pyinstaller --onefile h5mapalt_gui.py
 
