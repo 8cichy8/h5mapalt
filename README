@@ -1,0 +1,12 @@
+# h5mapalt (MMH55_Mapmixer) #
+
+### Dependencies ###
+
+* python3
+* wxPython Phoenix [(snapshots)](https://wxpython.org/Phoenix/snapshot-builds/)
+
+### To build exe ###
+
+* pip3 install pyinstaller
+* pyinstaller --onefile h5mapalt_gui.py
+
