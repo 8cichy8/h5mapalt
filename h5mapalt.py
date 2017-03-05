@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 
 __author__ = "Zich Robert (cichy)"
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 
 
 def printHelp():
@@ -663,6 +663,14 @@ class Creature:
         return power
     
     @classmethod
+    def getBasicStackPowerByTier(pClass, pTier):
+        count = [20, 30, 26, 20, 14, 11, 5.5, 3, 2, 1][pTier - 1]
+        power = 1
+        if pTier in pClass.sMapTierPower:
+            power = pClass.sMapTierPower[pTier]
+        return power * count
+    
+    @classmethod
     def getRandomTownId(pClass):
         townId = None
         while townId is None:
@@ -726,19 +734,39 @@ class Army:
             obj.mCourage = pXml.findtext("Courage", "")
             
             crea = Creature.getByShared(pXml.find("Shared").get("href", ""))
-            creaCount = int(pXml.findtext("Amount", "0"))
-            creaCount += int(pXml.findtext("Amount2", "0"))
-            if crea is not None and creaCount > 0:
-                obj.mUnits.append({"crea": crea, "count": creaCount})
+            if crea is not None:
+                creaCount = int(pXml.findtext("Amount", "0"))
+                creaCount2 = int(pXml.findtext("Amount2", "0"))
+                if creaCount2 > creaCount:
+                    # range
+                    creaCount = round((creaCount + creaCount2) / 2)
+                
+                creaIsCustom = pXml.findtext("Custom", "true") == "true"
+                if not creaIsCustom:
+                    # random size
+                    creaCount = round(Creature.getBasicStackPowerByTier(crea.mTier) / crea.mPower)
+                
+                if crea is not None and creaCount > 0:
+                    obj.mUnits.append({"crea": crea, "count": creaCount})
             
             otherUnits = pXml.find("AdditionalStacks")
             if otherUnits is not None:
                 for unit in otherUnits:
                     crea = Creature.getById(unit.findtext("Creature", ""))
-                    creaCount = int(unit.findtext("Amount", "0"))
-                    creaCount += int(unit.findtext("Amount2", "0"))
-                    if crea is not None and creaCount > 0:
-                        obj.mUnits.append({"crea": crea, "count": creaCount})
+                    if crea is not None:
+                        creaCount = int(unit.findtext("Amount", "0"))
+                        creaCount2 = int(unit.findtext("Amount2", "0"))
+                        if creaCount2 > creaCount:
+                            # range
+                            creaCount = round((creaCount + creaCount2) / 2)
+                        
+                        creaIsCustom = unit.findtext("CustomAmount", "true") == "true"
+                        if not creaIsCustom:
+                            # random size
+                            creaCount = round(Creature.getBasicStackPowerByTier(crea.mTier) / crea.mPower)
+                        
+                        if crea is not None and creaCount > 0:
+                            obj.mUnits.append({"crea": crea, "count": creaCount})
             
             if len(obj.mUnits) > 0:
                 return obj
@@ -760,6 +788,7 @@ class Army:
             pXml.find("Shared").set("href", self.mUnits[highestUnitIndex]["crea"].mShared)
             pXml.find("Amount").text = str(self.mUnits[highestUnitIndex]["count"])
             pXml.find("Amount2").text = "0"
+            pXml.find("Custom").text = "true"
             
             otherUnits = pXml.find("AdditionalStacks")
             if otherUnits is not None:
@@ -928,7 +957,58 @@ class Army:
                 altArmy.addUnit(creas[0]["crea"], 1)
         
         return altArmy
+
+
+class Town:
+    sAll = []
+    sMapId = {}
     
+    def __init__(self):
+        self.mId = ""
+        self.mPlayer = ""
+    
+    @staticmethod
+    def fromXml(pXml):
+        obj = None
+        if pXml is not None:
+            obj = Town()
+            obj.mId = pXml.get("id", "")
+            desc = pXml.find("AdvMapTown")
+            if desc is not None:
+                obj.mPlayer = desc.findtext("PlayerID", "PLAYER_NONE")
+        
+        return obj
+    
+    @classmethod
+    def init(pClass, pMapTree):
+        if pMapTree is None:
+            return
+        
+        root = pMapTree.getroot()
+        allTowns = root.findall("./objects/Item[@href='#n:inline(AdvMapTown)']")
+        
+        # fill list
+        pClass.sAll = []
+        pClass.sMapId = {}
+        
+        for item in allTowns:
+            town = Town.fromXml(item)
+            if town is not None:
+                pClass.sAll.append(town)
+                pClass.sMapId[town.mId] = town
+        
+        #print("towns loaded: {}".format(len(pClass.sAll)))
+    
+    @classmethod
+    def getById(pClass, pId):
+        town = None
+        if pId in pClass.sMapId:
+            town = pClass.sMapId[pId]
+        return town
+    
+    def hasPlayer(self):
+        return self.mPlayer != "PLAYER_NONE"
+
 
 class Map:
     def __init__(self, pFileName):
@@ -962,6 +1042,8 @@ class Map:
                         self.mTree = ET.parse(os.path.join(self.mTempFolder, self.mDataFileName))
                         print("map loaded")
                         break
+            
+            Town.init(self.mTree)
     
     def save(self):
         if (self.mTree is not None 
@@ -1134,33 +1216,50 @@ class Map:
         if self.mTree is None:
             return
         
-        # water objects maps
-        oneSquareWaterNormalTreasShared = [
-            "/MapObjects/Floatsam.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)"
+        # water objects lists
+        oneSquareWaterTreaList = [
+            {"weight": 12, "type": "floatsam", "shared": "/MapObjects/Floatsam.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)"},
+            {"weight": 6, "type": "chest", "shared": "/MapObjects/Sea_Chest.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)"},
+            {"weight": 1, "type": "special", "shared": "/MapObjects/Water/Shipwrecks_2/PeasantWreck.xdb#xpointer(/AdvMapTreasureShared)"},
+            {"weight": 1, "type": "special", "shared": "/MapObjects/Water/Shipwrecks_2/FootmanWreck.xdb#xpointer(/AdvMapTreasureShared)"}
         ]
-        oneSquareWaterExpTreasShared = [
-            "/MapObjects/Sea_Chest.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)"
-        ]
-        oneSquareWaterSpecialTreasShared = [
-            "/MapObjects/Water/Shipwrecks_2/PeasantWreck.xdb#xpointer(/AdvMapTreasureShared)",
-            "/MapObjects/Water/Shipwrecks_2/FootmanWreck.xdb#xpointer(/AdvMapTreasureShared)"
-        ]
-        oneSquareWaterTreasShared = oneSquareWaterNormalTreasShared[:] + oneSquareWaterExpTreasShared[:] + oneSquareWaterSpecialTreasShared[:]
-        oneSquareWaterObjsShared = [
-            "/MapObjects/Water/Damaged_Boats_2/Unkempt_Junk.xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Water/Damaged_Boats_2/Unkempt_Galley.xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Water/Damaged_Boats_2/Unkempt_Galleon.xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Water/Damaged_Boats_2/Demolish_Galleon.xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Water/Damaged_Boats_2/Demolish_Galley.xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Water/Damaged_Boats_2/Demolish_Junk.xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Sirens.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Mermaids.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
-            "/MapObjects/Buoy.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)"
+        oneSquareWaterObjList = [
+            {"weight": 1, "type": "combat", "shared": "/MapObjects/Water/Damaged_Boats_2/Unkempt_Junk.xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "combat", "shared": "/MapObjects/Water/Damaged_Boats_2/Unkempt_Galley.xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "combat", "shared": "/MapObjects/Water/Damaged_Boats_2/Unkempt_Galleon.xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "combat", "shared": "/MapObjects/Water/Damaged_Boats_2/Demolish_Galleon.xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "combat", "shared": "/MapObjects/Water/Damaged_Boats_2/Demolish_Galley.xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "combat", "shared": "/MapObjects/Water/Damaged_Boats_2/Demolish_Junk.xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "other", "shared": "/MapObjects/Sirens.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "other", "shared": "/MapObjects/Mermaids.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)"},
+            {"weight": 1, "type": "other", "shared": "/MapObjects/Buoy.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)"}
         ]
         
-        oneSquareWaterItems = []
+        def getSharedList(mList, byWeight):
+            lList = []
+            for obj in mList:
+                if not byWeight:
+                    lList.append(obj["shared"])
+                else:
+                    for i in range(obj["weight"]):
+                        lList.append(obj["shared"])
+            return lList
+        
+        oneSquareWaterTreasShared = getSharedList(oneSquareWaterTreaList, False)
+        oneSquareWaterObjsShared = getSharedList(oneSquareWaterObjList, False)
+        
+        oneSquareWaterTreasSharedWeight = getSharedList(oneSquareWaterTreaList, True)
+        oneSquareWaterObjsSharedWeight = getSharedList(oneSquareWaterObjList, True)
+        
+        # ratios
+        waterObjDelRatio = 0.0
+        waterTreaRatio = 0.7
+        
+        # counts
         oldOneSquareWaterItemsCount = {}
-        waterExpTreaCount = 0
+        newOneSquareWaterItemsCount = {}
+        
+        oneSquareWaterItems = []
         
         root = self.mTree.getroot()
         items = root.find("objects")
@@ -1179,9 +1278,6 @@ class Map:
                         if ((isTreasure and innerItemSharedValue in oneSquareWaterTreasShared) 
                             or (isBuilding and innerItemSharedValue in oneSquareWaterObjsShared)):
                             
-                            if isTreasure and innerItemSharedValue in oneSquareWaterExpTreasShared:
-                                waterExpTreaCount += 1
-                            
                             if innerItemSharedValue not in oldOneSquareWaterItemsCount:
                                 oldOneSquareWaterItemsCount[innerItemSharedValue] = 0
                             oldOneSquareWaterItemsCount[innerItemSharedValue] += 1
@@ -1195,56 +1291,22 @@ class Map:
                             
                             oneSquareWaterItems.append({"item": item, "innerItem": innerItem})
         
-        # ratios
-        waterObjDelRatio = 0.0 #+ (rand.random() / 20)   # from all water objects
-        waterExpTreaRatio = 0.15 + (rand.random() / 10)   # from all water objects
-        if waterExpTreaCount > 0:
-            waterExpTreaRatio = waterExpTreaCount / len(oneSquareWaterItems)
-            #if waterExpTreaRatio >= 0.02:
-            #    waterExpTreaRatio += (rand.random() / 25) - 0.02
-        waterExpTreaRatio = (waterExpTreaRatio * (1 - waterObjDelRatio)) + waterObjDelRatio
-        waterTreaRatio = 0.65 + (rand.random() / 20)     # from rest
-        waterSpecialTreaRatio = 0.08  + (rand.random() / 20)    # from trea objects
-        
-        # counts
-        waterObjDelCount = 0
-        waterTreaCount = 0
-        waterExpTreaCount = 0
-        waterSpecialTreaCount = 0
-        waterBuildCount = 0
-        
-        # change some water objects on map
+        # change water objects
         for oneSquareWaterItem in oneSquareWaterItems:
             item = oneSquareWaterItem["item"]
             innerItem = oneSquareWaterItem["innerItem"]
             innerItemShared = innerItem.find("Shared")
             
-            randNum =rand.random()
-            if randNum < waterObjDelRatio:
-                # remove some water items
-                waterObjDelCount += 1
+            if rand.random() < waterObjDelRatio:
+                # remove water object
                 items.remove(item)
             else:
-                isExpTreasure = randNum < waterExpTreaRatio
-                isTreasure = isExpTreasure or rand.random() < waterTreaRatio
+                isTreasure = rand.random() < waterTreaRatio
                 if isTreasure:
                     # treasure
-                    waterTreaCount += 1
                     item.set("href", "#n:inline(AdvMapTreasure)")
                     innerItem.tag = "AdvMapTreasure"
-                    if isExpTreasure:
-                        # exp treasure
-                        waterExpTreaCount += 1
-                        innerItemShared.set("href", rand.choice(oneSquareWaterExpTreasShared))
-                    else:
-                        randNum =rand.random()
-                        if randNum < waterSpecialTreaRatio:
-                            # special treasure
-                            waterSpecialTreaCount += 1
-                            innerItemShared.set("href", rand.choice(oneSquareWaterSpecialTreasShared))
-                        else:
-                            # normal treasure
-                            innerItemShared.set("href", rand.choice(oneSquareWaterNormalTreasShared))
+                    innerItemShared.set("href", rand.choice(oneSquareWaterTreasSharedWeight))
                     
                     # add some sub elements
                     ET.SubElement(innerItem, "IsCustom").text = "false"
@@ -1252,10 +1314,9 @@ class Map:
                     ET.SubElement(innerItem, "MessageFileRef").set("href", "")
                 else:
                     # building
-                    waterBuildCount += 1
                     item.set("href", "#n:inline(AdvMapBuilding)")
                     innerItem.tag = "AdvMapBuilding"
-                    innerItemShared.set("href", rand.choice(oneSquareWaterObjsShared))
+                    innerItemShared.set("href", rand.choice(oneSquareWaterObjsSharedWeight))
                     
                     # add some sub elements
                     ET.SubElement(innerItem, "PlayerID").text = "PLAYER_NONE"
@@ -1264,51 +1325,71 @@ class Map:
                     ET.SubElement(captureTriggerActionItem, "FunctionName")
                     ET.SubElement(innerItem, "GroupID").text = "0"
                     ET.SubElement(innerItem, "showCameras")
+                
+                innerItemSharedValue = innerItemShared.get("href", "")
+                if innerItemSharedValue not in newOneSquareWaterItemsCount:
+                    newOneSquareWaterItemsCount[innerItemSharedValue] = 0
+                newOneSquareWaterItemsCount[innerItemSharedValue] += 1
         
         oldWaterObjCount = len(oneSquareWaterItems)
         
         print("water objects changed: {}".format(oldWaterObjCount))
         
         if logWaterChange and oldWaterObjCount > 0:
-            def getAllCountsFromOldMap(pListShared):
+            def getCounts(pCountMap, pListObjs, pObjsType):
                 totalValue = 0
-                for shared in pListShared:
-                    if shared in oldOneSquareWaterItemsCount:
-                        totalValue += oldOneSquareWaterItemsCount[shared]
-                return totalValue 
+                for obj in pListObjs:
+                    if obj["type"] == pObjsType and obj["shared"] in pCountMap:
+                        totalValue += pCountMap[obj["shared"]]
+                return totalValue
             
-            oldWaterTreaCount = getAllCountsFromOldMap(oneSquareWaterTreasShared)
-            oldWaterExpTreaCount = getAllCountsFromOldMap(oneSquareWaterExpTreasShared)
-            oldWaterSpecialTreaCount = getAllCountsFromOldMap(oneSquareWaterSpecialTreasShared)
-            oldWaterNormalTreaCount = oldWaterTreaCount - oldWaterExpTreaCount - oldWaterSpecialTreaCount
-            oldWaterBuildCount = getAllCountsFromOldMap(oneSquareWaterObjsShared)
+            oldWaterTreaFloatsamCount = getCounts(oldOneSquareWaterItemsCount, oneSquareWaterTreaList, "floatsam")
+            oldWaterTreaChestCount = getCounts(oldOneSquareWaterItemsCount, oneSquareWaterTreaList, "chest")
+            oldWaterTreaSpecialCount = getCounts(oldOneSquareWaterItemsCount, oneSquareWaterTreaList, "special")
+            oldWaterTreaCount = oldWaterTreaFloatsamCount + oldWaterTreaChestCount + oldWaterTreaSpecialCount
+            oldWaterBuildCombatCount = getCounts(oldOneSquareWaterItemsCount, oneSquareWaterObjList, "combat")
+            oldWaterBuildOtherCount = getCounts(oldOneSquareWaterItemsCount, oneSquareWaterObjList, "other")
+            oldWaterBuildCount = oldWaterBuildCombatCount + oldWaterBuildOtherCount
             
-            waterObjCount = oldWaterObjCount - waterObjDelCount
-            waterNormalTreaCount = waterTreaCount - waterExpTreaCount - waterSpecialTreaCount
+            newWaterTreaFloatsamCount = getCounts(newOneSquareWaterItemsCount, oneSquareWaterTreaList, "floatsam")
+            newWaterTreaChestCount = getCounts(newOneSquareWaterItemsCount, oneSquareWaterTreaList, "chest")
+            newWaterTreaSpecialCount = getCounts(newOneSquareWaterItemsCount, oneSquareWaterTreaList, "special")
+            newWaterTreaCount = newWaterTreaFloatsamCount + newWaterTreaChestCount + newWaterTreaSpecialCount
+            newWaterBuildCombatCount = getCounts(newOneSquareWaterItemsCount, oneSquareWaterObjList, "combat")
+            newWaterBuildOtherCount = getCounts(newOneSquareWaterItemsCount, oneSquareWaterObjList, "other")
+            newWaterBuildCount = newWaterBuildCombatCount + newWaterBuildOtherCount
+            newWaterObjCount = newWaterTreaCount + newWaterBuildCount
+            newWaterDelObjCount = oldWaterObjCount - newWaterObjCount
             
             print("\nWATER OBJECTS COUNT (old map):")
             print("water objects - count: {}".format(oldWaterObjCount))
             if oldWaterObjCount > 0:
-                print("water treasures - count: {} ({:.2f}%) normal: {} ({:.2f}%) exp: {} ({:.2f}%) special: {} ({:.2f}%)".format(
+                print("water treasures - count: {} ({:.2f}%) (floatsam: {} ({:.2f}%) chest: {} ({:.2f}%) special: {} ({:.2f}%))".format(
                         oldWaterTreaCount, oldWaterTreaCount / oldWaterObjCount * 100, 
-                        oldWaterNormalTreaCount, (oldWaterNormalTreaCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0, 
-                        oldWaterExpTreaCount, (oldWaterExpTreaCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0, 
-                        oldWaterSpecialTreaCount, (oldWaterSpecialTreaCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0))
-                print("water buildings - count: {} ({:.2f}%)".format(oldWaterBuildCount, oldWaterBuildCount / oldWaterObjCount * 100))
+                        oldWaterTreaFloatsamCount, (oldWaterTreaFloatsamCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0, 
+                        oldWaterTreaChestCount, (oldWaterTreaChestCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0, 
+                        oldWaterTreaSpecialCount, (oldWaterTreaSpecialCount / oldWaterTreaCount * 100) if oldWaterTreaCount > 0 else 0))
+                print("water buildings - count: {} ({:.2f}%) (combat: {} ({:.2f}%) other: {} ({:.2f}%))".format(
+                        oldWaterBuildCount, oldWaterBuildCount / oldWaterObjCount * 100, 
+                        oldWaterBuildCombatCount, (oldWaterBuildCombatCount / oldWaterBuildCount * 100) if oldWaterBuildCount > 0 else 0, 
+                        oldWaterBuildOtherCount, (oldWaterBuildOtherCount / oldWaterBuildCount * 100) if oldWaterBuildCount > 0 else 0))
             print("")
             
             print("\nWATER OBJECTS COUNT (new map):")
             print("water objects - count: {} changed: {} ({:.2f}%) removed: {} ({:.2f}%)".format(
                     oldWaterObjCount, 
-                    waterObjCount, waterObjCount / oldWaterObjCount * 100,
-                    waterObjDelCount, waterObjDelCount / oldWaterObjCount * 100))
-            if waterObjCount > 0:
-                print("water treasures - count: {} ({:.2f}%) normal: {} ({:.2f}%) exp: {} ({:.2f}%) special: {} ({:.2f}%)".format(
-                        waterTreaCount, waterTreaCount / waterObjCount * 100, 
-                        waterNormalTreaCount, (waterNormalTreaCount / waterTreaCount * 100) if waterTreaCount > 0 else 0, 
-                        waterExpTreaCount, (waterExpTreaCount / waterTreaCount * 100) if waterTreaCount > 0 else 0, 
-                        waterSpecialTreaCount, (waterSpecialTreaCount / waterTreaCount * 100) if waterTreaCount > 0 else 0))
-                print("water buildings - count: {} ({:.2f}%)".format(waterBuildCount, waterBuildCount / waterObjCount * 100))
+                    newWaterObjCount, newWaterObjCount / oldWaterObjCount * 100,
+                    newWaterDelObjCount, newWaterDelObjCount / oldWaterObjCount * 100))
+            if newWaterObjCount > 0:
+                print("water treasures - count: {} ({:.2f}%) (floatsam: {} ({:.2f}%) chest: {} ({:.2f}%) special: {} ({:.2f}%))".format(
+                        newWaterTreaCount, newWaterTreaCount / newWaterObjCount * 100, 
+                        newWaterTreaFloatsamCount, (newWaterTreaFloatsamCount / newWaterTreaCount * 100) if newWaterTreaCount > 0 else 0, 
+                        newWaterTreaChestCount, (newWaterTreaChestCount / newWaterTreaCount * 100) if newWaterTreaCount > 0 else 0, 
+                        newWaterTreaSpecialCount, (newWaterTreaSpecialCount / newWaterTreaCount * 100) if newWaterTreaCount > 0 else 0))
+                print("water buildings - count: {} ({:.2f}%) (combat: {} ({:.2f}%) other: {} ({:.2f}%))".format(
+                        newWaterBuildCount, newWaterBuildCount / newWaterObjCount * 100, 
+                        newWaterBuildCombatCount, (newWaterBuildCombatCount / newWaterBuildCount * 100) if newWaterBuildCount > 0 else 0, 
+                        newWaterBuildOtherCount, (newWaterBuildOtherCount / newWaterBuildCount * 100) if newWaterBuildCount > 0 else 0))
             print("")
     
     def changeDwellings(self):
@@ -1322,9 +1403,14 @@ class Map:
             "/MapObjects/Random/RandomDwelling7.xdb#xpointer(/AdvMapDwellingShared)"
         ]
         
-        townDwellShared = rand.choice(dwellList)
-        otherDwellShared = rand.choice(dwellList)
+        playerTownDwellSharedList = {}
+        townDwellSharedList = {}
+        playerMap = {}
+        townMap = {}
         dwellsChanged = 0
+        
+        townIdPrefixLen = len("#xpointer(id(")
+        townIdPostfixLen = len(")/AdvMapTown)")
         
         root = self.mTree.getroot()
         allDwells = root.findall("./objects/Item[@href='#n:inline(AdvMapDwelling)']/AdvMapDwelling")
@@ -1336,11 +1422,35 @@ class Map:
                 if sharedValue in highTierDwellsShared:
                     dwellsChanged += 1
                     
+                    town = None
                     linkTownHref = dwell.find("LinkToTown").get("href", "")
-                    if len(linkTownHref) > 0:
-                        sharedNode.set("href", townDwellShared)
+                    if len(linkTownHref) > (townIdPrefixLen + townIdPostfixLen):
+                        town = Town.getById(linkTownHref[townIdPrefixLen : len(linkTownHref) - townIdPostfixLen])
+                    
+                    if town is not None:
+                        if town.hasPlayer():
+                            # player town
+                            # all players will have same dwellings
+                            if town.mPlayer not in playerMap:
+                                playerMap[town.mPlayer] = 0
+                            if playerMap[town.mPlayer] not in playerTownDwellSharedList:
+                                playerTownDwellSharedList[playerMap[town.mPlayer]] = rand.choice(dwellList)
+                            sharedNode.set("href", playerTownDwellSharedList[playerMap[town.mPlayer]])
+                            
+                            playerMap[town.mPlayer] += 1
+                        else:
+                            # non player town
+                            # all non players towns will have same dwellings
+                            if town.mId not in townMap:
+                                townMap[town.mId] = 0
+                            if townMap[town.mId] not in townDwellSharedList:
+                                townDwellSharedList[townMap[town.mId]] = rand.choice(dwellList)
+                            sharedNode.set("href", townDwellSharedList[townMap[town.mId]])
+                            
+                            townMap[town.mId] += 1
                     else:
-                        sharedNode.set("href", otherDwellShared)
+                        # other
+                        sharedNode.set("href", rand.choice(dwellList))
                     
                     dwell.find("RandomCreatures").text = "false"
                     dwell.find("creaturesEnabled").clear()
