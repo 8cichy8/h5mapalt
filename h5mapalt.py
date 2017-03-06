@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 
 __author__ = "Zich Robert (cichy)"
-__version__ = "1.5.1"
+__version__ = "1.5.2"
 
 
 def printHelp():
@@ -19,8 +19,8 @@ def printHelp():
     print("""
 Execution: python script.py [OPTIONS] mapFile.h5m
 
-This script can change creatures/artifacts on homm5/mmh55 maps.
-Script expects it is in Maps folder of Tribes of the East.
+This script can change creatures, artifacts and other on homm5/mmh55 maps.
+Script expects path to "data" folder of Tribes of the East is "../data".
 
 Artifacts:
     - one to another (in same price group)
@@ -1017,6 +1017,7 @@ class Map:
         self.mDataFileName = None
         self.mTempFolder = ".tempMapFolder6541351"
         self.mBckExt = ".bck"
+        self.useDirectAccess = False and sys.version_info.major >= 3 and sys.version_info.minor >= 6
     
     def load(self):
         if (self.mFileName is not None 
@@ -1033,13 +1034,20 @@ class Map:
                     if filePath.endswith("map.xdb"):
                         # found map file path
                         self.mDataFileName = filePath
-                        if os.path.exists(self.mTempFolder):
-                            shutil.rmtree(self.mTempFolder)
-                        # extract map arch to temp folder
-                        arch.extractall(self.mTempFolder)
-
-                        # load map xml tree
-                        self.mTree = ET.parse(os.path.join(self.mTempFolder, self.mDataFileName))
+                        
+                        if self.useDirectAccess:
+                            with arch.open(self.mDataFileName, "r") as archInnerFile:
+                                # load map xml tree
+                                self.mTree = ET.parse(archInnerFile)
+                        else:
+                            if os.path.exists(self.mTempFolder):
+                                shutil.rmtree(self.mTempFolder)
+                            # extract map arch to temp folder
+                            arch.extractall(self.mTempFolder)
+                        
+                            # load map xml tree
+                            self.mTree = ET.parse(os.path.join(self.mTempFolder, self.mDataFileName))
+                        
                         print("map loaded")
                         break
             
@@ -1050,28 +1058,37 @@ class Map:
                 and self.mFileName is not None 
                 and len(self.mFileName) > 0
                 and self.mDataFileName is not None 
-                and os.path.exists(os.path.join(self.mTempFolder, self.mDataFileName))):
-            
-            # write map xml tree to temp file
-            self.mTree.write(os.path.join(self.mTempFolder, self.mDataFileName), "UTF-8", True)
+                and (self.useDirectAccess or os.path.exists(os.path.join(self.mTempFolder, self.mDataFileName)))):
             
             if createMapBck and os.path.exists(self.mFileName) and not os.path.exists(self.mFileName + self.mBckExt):
                 # backup does not exist - create it - before we change original map file
                 os.rename(self.mFileName, self.mFileName + self.mBckExt)
             
-            # compress content of temp folder to map arch and remove temp folder
-            with zipfile.ZipFile(self.mFileName, "w", zipfile.ZIP_DEFLATED) as arch:
-                files = []
-                for (dirPath, dirNames, fileNames) in os.walk(self.mTempFolder):
-                    for fileName in fileNames:
-                        files.append(os.path.join(dirPath, fileName))
-
-                tempFileNamePrefixLen = len(self.mTempFolder + "/")
-                for f in files:
-                    arch.write(f, f[tempFileNamePrefixLen:])
-                shutil.rmtree(self.mTempFolder)
+            if self.useDirectAccess:
+                # direct save to zip file
+                # TODO: copy arch from backup (if available/needed)?
+                # INFO: not tested!
+                with zipfile.ZipFile(self.mFileName, "a", zipfile.ZIP_DEFLATED) as arch:
+                    with arch.open(self.mDataFileName, "w") as archInnerFile:
+                        # write map xml tree to file
+                        self.mTree.write(archInnerFile, "UTF-8", True)
+            else:
+                # write map xml tree to temp file
+                self.mTree.write(os.path.join(self.mTempFolder, self.mDataFileName), "UTF-8", True)
                 
-                print("map saved")
+                # compress content of temp folder to map arch and remove temp folder
+                with zipfile.ZipFile(self.mFileName, "w", zipfile.ZIP_DEFLATED) as arch:
+                    files = []
+                    for (dirPath, dirNames, fileNames) in os.walk(self.mTempFolder):
+                        for fileName in fileNames:
+                            files.append(os.path.join(dirPath, fileName))
+
+                    tempFileNamePrefixLen = len(self.mTempFolder + "/")
+                    for f in files:
+                        arch.write(f, f[tempFileNamePrefixLen:])
+                    shutil.rmtree(self.mTempFolder)
+            
+            print("map saved")
     
     def changeArtifacts(self):
         if self.mTree is None:
