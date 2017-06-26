@@ -63,7 +63,7 @@ Options:
                                         - needed by mmh55 (to work in multiplayer)
     --waterChange=true              To change some water objects
     --dwellChange=true              To change high tier (random) dwellings(dwell)
-    --dwellRatio=1,1,0,0            To choose possible tiers(and theirs weight) of dwell
+    --dwellRatio=4,3,1,0            To choose possible tiers(and theirs weight) of dwell
                                         - tier order: 4,5,6,7
                                         - value "1,1,0,0" would give us 50% T4 and 50% T5
     
@@ -115,7 +115,7 @@ def resetArgs():
     g["enableScripts"] = "true"
     g["waterChange"] = "true"
     g["dwellChange"] = "true"
-    g["dwellRatio"] = "1,1,0,0"
+    g["dwellRatio"] = "4,3,1,0"
     
     g["logArtInit"] = "false"
     g["logArtChange"] = "false"
@@ -1246,6 +1246,14 @@ class Map:
         if self.mTree is None:
             return
         
+        root = self.mTree.getroot()
+        
+        # set ReflectiveWater to true
+        reflectiveWaterNode = root.find("ReflectiveWater")
+        if reflectiveWaterNode is None:
+            reflectiveWaterNode = ET.SubElement(root, "ReflectiveWater")
+        reflectiveWaterNode.text = "true"
+        
         # water objects lists
         oneSquareWaterTreaList = [
             {"weight": 12, "type": "floatsam", "shared": "/MapObjects/Floatsam.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)"},
@@ -1291,7 +1299,6 @@ class Map:
         
         oneSquareWaterItems = []
         
-        root = self.mTree.getroot()
         items = root.find("objects")
         
         # load water objects
@@ -1430,7 +1437,16 @@ class Map:
             "/MapObjects/Random/RandomDwelling4.xdb#xpointer(/AdvMapDwellingShared)",
             "/MapObjects/Random/RandomDwelling5.xdb#xpointer(/AdvMapDwellingShared)",
             "/MapObjects/Random/RandomDwelling6.xdb#xpointer(/AdvMapDwellingShared)",
-            "/MapObjects/Random/RandomDwelling7.xdb#xpointer(/AdvMapDwellingShared)"
+            "/MapObjects/Random/RandomDwelling7.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Haven/Heaven_Military_Post.(AdvMapDwellingShared).xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Inferno/InfernoMilitaryPost.(AdvMapDwellingShared).xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Necropolis/Necropolis_Military_Post.(AdvMapDwellingShared).xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Preserve/Preserve_Military_Post.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Dungeon/Dungeon_Military_Post.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Academy/Academy_Military_Post.xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Dwarven/DwarvenDwelling04.(AdvMapDwellingShared).xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Dwarven/DwarvenDwelling04.(AdvMapDwellingShared) (2).xdb#xpointer(/AdvMapDwellingShared)",
+            "/MapObjects/Orcs/OrcishDwelling04.(AdvMapDwellingShared).xdb#xpointer(/AdvMapDwellingShared)"
         ]
         
         playerTownDwellSharedList = {}
