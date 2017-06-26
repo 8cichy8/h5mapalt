@@ -18,7 +18,7 @@ class MyFrame(wx.Frame):
         self.creaRandomCheck = None
         self.creaNcfCheck = None
         self.creaPowerRatioSpin = None
-        self.creaNeutralReductionSpin = None
+        self.creaNeutralRatioSpin = None
         self.creaGroupRatioSlider = None
         self.creaMoodChangeCheck = None
         self.creaMoodFriendlyCheck = None
@@ -89,10 +89,10 @@ class MyFrame(wx.Frame):
         creaGridSizer.Add(label, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
         creaGridSizer.Add(self.creaPowerRatioSpin, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
-        label = wx.StaticText(creaBox, wx.ID_ANY, "neutral reduction")
-        self.creaNeutralReductionSpin = wx.SpinCtrl(creaBox, wx.ID_ANY, min=0, max=100, initial=2)
+        label = wx.StaticText(creaBox, wx.ID_ANY, "neutral ratio")
+        self.creaNeutralRatioSpin = wx.Slider(creaBox, wx.ID_ANY, -2, -6, 6, style=wx.SL_HORIZONTAL|wx.SL_LABELS)
         creaGridSizer.Add(label, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
-        creaGridSizer.Add(self.creaNeutralReductionSpin, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        creaGridSizer.Add(self.creaNeutralRatioSpin, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         label = wx.StaticText(creaBox, wx.ID_ANY, "mixed stacks (%)")
         self.creaGroupRatioSlider = wx.Slider(creaBox, wx.ID_ANY, 55, 0, 100, style=wx.SL_HORIZONTAL|wx.SL_LABELS)
@@ -257,7 +257,7 @@ class MyFrame(wx.Frame):
         self.creaPowerRatioSpin.Enable(enable)
         
         randomEnable = enable and not self.creaRandomCheck.GetValue()
-        self.creaNeutralReductionSpin.Enable(randomEnable)
+        self.creaNeutralRatioSpin.Enable(randomEnable)
         self.creaGroupRatioSlider.Enable(randomEnable)
         
         self.creaMoodChangeCheck.Enable(enable)
@@ -335,7 +335,7 @@ class MyFrame(wx.Frame):
         
         argCreaPowerRatio = "--creaPowerRatio=" + str(self.creaPowerRatioSpin.GetValue())
         argCreaGroupRatio = "--creaGroupRatio=" + str(self.creaGroupRatioSlider.GetValue() / 100)
-        argCreaNeutralReduction = "--creaNeutralReduction=" + str(self.creaNeutralReductionSpin.GetValue())
+        argCreaNeutralRatio = "--creaNeutralRatio=" + str(self.creaNeutralRatioSpin.GetValue())
         argCreaNCF = "--creaNCF=" + ("true" if self.creaNcfCheck.GetValue() else "false")
         
         argCreaMoodChange = "--creaMoodChange=" + ("true" if self.creaMoodChangeCheck.GetValue() else "false")
@@ -354,7 +354,7 @@ class MyFrame(wx.Frame):
         args = [
             argMapFile, argArtChange, argCreaChange, argArtChangeOnlyRandom, argArtRandom, 
             argCreaChangeOnlyRandom, argCreaRandom, argCreaPowerRatio, argCreaGroupRatio, 
-            argCreaNeutralReduction, argCreaNCF, argCreaMoodChange, argCreaMoodRatio, 
+            argCreaNeutralRatio, argCreaNCF, argCreaMoodChange, argCreaMoodRatio, 
             argEnableScripts, argWaterChange, argDwellChange, argGuiIsShown
         ]
         try:

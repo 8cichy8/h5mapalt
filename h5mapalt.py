@@ -49,11 +49,13 @@ Options:
     --creaMoodRatio=0,3,2,1         Will modify crea mood (probably does not affect groups).
                                         - mood order: FRIENDLY,AGGRESSIVE,HOSTILE,WILD
                                         - value "1,1,0,0" would give us 50% FRIENDLY and 50% AGGRESSIVE
-    --creaNeutralReduction=2        To reduce chance of neutrals to be placed on map.
-                                        - chanceToPlaceOnMap = 1 / townsCount / (creaNeutralReduction + 1)
+    --creaNeutralRatio=-2           To change chance of neutrals to be placed on map.
+                                        - creaNeutralRatio == 0: chanceToPlaceOnMap = 1 / (townsCount + 1)
+                                        - creaNeutralRatio < 0: chanceToPlaceOnMap = 1 / (townsCount * (creaNeutralRatio * -1 + 1) + 1)
+                                        - creaNeutralRatio > 0: chanceToPlaceOnMap = (2 ** creaNeutralRatio) / (townsCount + 2 ** creaNeutralRatio)
     --creaNCF=false                 To load and work with NCF creatures.
                                         - will look for files in data folder, which names starts with "NCF"
-                                        - if NFC is used, then --creaNeutralReduction=0 should be set (probably)
+                                        - if NFC is used, then --creaNeutralRatio=0, or higher should be set (probably)
     
     --enableScripts=true            To enable scripts.
                                         - will enable scripts only if not already enabled
@@ -107,7 +109,7 @@ def resetArgs():
     g["creaMoodRatio"] = "0,3,2,1"
     g["creaPowerRatio"] = "1.0"
     g["creaGroupRatio"] = "0.55"
-    g["creaNeutralReduction"] = "2"
+    g["creaNeutralRatio"] = "-2"
     g["creaNCF"] = "false"
     
     g["enableScripts"] = "true"
@@ -125,7 +127,6 @@ def resetArgs():
     
     # no args
     g["guiIsShown"] = False
-    g["creaNeutralChanceList"] = None
     g["creaMoodList"] = None
     g["dwellList"] = None
     g["dataFolder"] = None
@@ -159,7 +160,7 @@ def parseArgs(pArgs):
         "pathToGameFolder", "loadMapFromBck", "createMapBck", "artChange", 
         "creaChange", "artChangeOnlyRandom", "artRandom", "creaChangeOnlyRandom", 
         "creaMoodChange", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
-        "creaNeutralReduction", "creaRandom", "creaNCF", "enableScripts", 
+        "creaNeutralRatio", "creaRandom", "creaNCF", "enableScripts", 
         "waterChange", "dwellChange", "dwellRatio", "logArtInit", "logArtChange", 
         "logCreaInit", "logCreaChange", "logWaterChange", "logMapInfo", "logWarnings", 
         "guiIsShown"
@@ -214,7 +215,12 @@ def parseArgs(pArgs):
     try:
         g["creaPowerRatio"] = float(g["creaPowerRatio"])
         g["creaGroupRatio"] = float(g["creaGroupRatio"])
-        g["creaNeutralReduction"] = int(g["creaNeutralReduction"])
+        g["creaNeutralRatio"] = int(g["creaNeutralRatio"])
+        
+        if g["creaNeutralRatio"] > 8:
+            g["creaNeutralRatio"] = 8
+        elif g["creaNeutralRatio"] < -8:
+            g["creaNeutralRatio"] = -8
     except ValueError:
         printHelp()
         Log.error("Value error!")
@@ -222,11 +228,6 @@ def parseArgs(pArgs):
     if g["creaChange"]:
         if g["creaPowerRatio"] <= 0.0:
             g["creaPowerRatio"] = 1.0
-
-        # fill creaNeutralChanceList
-        g["creaNeutralChanceList"] = [True]
-        for i in range(g["creaNeutralReduction"]):
-            g["creaNeutralChanceList"].append(False)
 
         # fill creaMoodList
         g["creaMoodList"] = []
@@ -428,6 +429,7 @@ class Creature:
     sMapShared = {}
     sMapTierPower = {}
     sTownList = []
+    sTownWeightList = []
     sRandList = []
     
     def __init__(self):
@@ -473,6 +475,7 @@ class Creature:
         pClass.sMapShared = {}
         pClass.sMapTierPower = {}
         pClass.sTownList = []
+        pClass.sTownWeightList = []
         pClass.sRandList = []
         
         # files with creatures
@@ -485,7 +488,7 @@ class Creature:
             # if NCF is used, then load creas from files which names starts with "NCF"
             for (dirPath, dirNames, fileNames) in os.walk(dataFolder):
                 for fileName in fileNames:
-                    if fileName.startswith("NCF"):
+                    if fileName.startswith("NCF") and fileName.endswith(".pak"):
                         fileName = os.path.join(dirPath, fileName)
                         archFiles.append({
                             "mainFile": fileName,
@@ -563,9 +566,26 @@ class Creature:
                         pClass.sMap[crea.mTown][crea.mTier] = []
                     pClass.sMap[crea.mTown][crea.mTier].append(crea)
         
-        # fill sTownList
+        # fill sTownList and sTownWeightList
         for townId in pClass.sMap:
             pClass.sTownList.append(townId)
+            
+            if creaNeutralRatio != 0:
+                if creaNeutralRatio < 0:
+                    # decreasing chance of neutral creas
+                    pClass.sTownWeightList.append(townId)
+                    if townId != "TOWN_NO_TYPE":
+                        for i in range(creaNeutralRatio * -1):
+                            pClass.sTownWeightList.append(townId)
+                else:
+                    # increasing chance of neutral creas
+                    if townId != "TOWN_NO_TYPE":
+                        pClass.sTownWeightList.append(townId)
+                    else:
+                        for i in range(2 ** creaNeutralRatio):
+                            pClass.sTownWeightList.append(townId)
+            else:
+                pClass.sTownWeightList.append(townId)
         
         # fill sMapTierPower
         tierCreasCount = {}
@@ -672,14 +692,7 @@ class Creature:
     
     @classmethod
     def getRandomTownId(pClass):
-        townId = None
-        while townId is None:
-            townId = rand.choice(pClass.sTownList)
-            if townId == "TOWN_NO_TYPE":
-                # may reduce chance to neutrals be on map
-                if rand.choice(creaNeutralChanceList) != True:
-                    townId = None
-        return townId
+        return rand.choice(pClass.sTownWeightList)
     
     @classmethod
     def getTownCreatures(pClass, pTownId):
