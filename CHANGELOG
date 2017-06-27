@@ -1,3 +1,10 @@
+******* 1.6.0 - 2017.06.27
+Chance to place creatures without faction on map can be also increased (arg "creaNeutralReduction" was replaced with "creaNeutralRatio")
+Setting ReflectiveWater to true while changing water objects
+Now can also swap specific high tier dwellings (not only random)
+Changed default dwellRatio to 4,3,1,0
+Improved army generation if NCF is used
+
 ******* 1.5.2 - 2017.03.06
 Added feature to directly change map archive (not enabled)
 

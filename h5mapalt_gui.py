@@ -90,7 +90,7 @@ class MyFrame(wx.Frame):
         creaGridSizer.Add(self.creaPowerRatioSpin, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
         label = wx.StaticText(creaBox, wx.ID_ANY, "neutral ratio")
-        self.creaNeutralRatioSpin = wx.Slider(creaBox, wx.ID_ANY, -2, -6, 6, style=wx.SL_HORIZONTAL|wx.SL_LABELS)
+        self.creaNeutralRatioSpin = wx.Slider(creaBox, wx.ID_ANY, -2, -4, 4, style=wx.SL_HORIZONTAL|wx.SL_LABELS)
         creaGridSizer.Add(label, 0, wx.ALL|wx.ALIGN_CENTER_VERTICAL, 5)
         creaGridSizer.Add(self.creaNeutralRatioSpin, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         

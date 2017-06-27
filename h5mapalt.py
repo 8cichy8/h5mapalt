@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 
 __author__ = "Zich Robert (cichy)"
-__version__ = "1.5.2"
+__version__ = "1.6.0"
 
 
 def printHelp():
@@ -431,6 +431,7 @@ class Creature:
     sTownList = []
     sTownWeightList = []
     sRandList = []
+    sHighestCommonTier = 1
     
     def __init__(self):
         self.mId = ""
@@ -477,6 +478,7 @@ class Creature:
         pClass.sTownList = []
         pClass.sTownWeightList = []
         pClass.sRandList = []
+        pClass.sHighestCommonTier = 1
         
         # files with creatures
         archFiles = [{
@@ -586,6 +588,14 @@ class Creature:
                             pClass.sTownWeightList.append(townId)
             else:
                 pClass.sTownWeightList.append(townId)
+        
+        # find sHighestCommonTier
+        pClass.sHighestCommonTier = 100
+        for townId in pClass.sTownList:
+            if pClass.sHighestCommonTier not in pClass.sMap[townId] and townId != "TOWN_NO_TYPE":
+                pClass.sHighestCommonTier = len(pClass.sMap[townId])
+                while pClass.sHighestCommonTier not in pClass.sMap[townId]:
+                    pClass.sHighestCommonTier -= 1
         
         # fill sMapTierPower
         tierCreasCount = {}
@@ -844,6 +854,8 @@ class Army:
             
             if creaRandom:
                 # random unit
+                if tier > 7:
+                    tier = 7
                 tierPower = Creature.getPowerByTier(tier)
                 count = int(armyPower / tierPower) # real count
                 addOneRatio = (armyPower - (tierPower * count)) / tierPower # how big part of one unit is missing
@@ -861,6 +873,8 @@ class Army:
                     townId = Creature.getRandomTownId()
                     if not Creature.townHasTier(townId, tier):
                         townId = None
+                        if tier > Creature.sHighestCommonTier:
+                            tier = Creature.sHighestCommonTier
                 
                 # may change tier
                 tierChangeRatio = 0.10
@@ -893,6 +907,8 @@ class Army:
                 townId = Creature.getRandomTownId()
                 if not Creature.townHasTier(townId, highUnitTier):
                     townId = None
+                    if highUnitTier > Creature.sHighestCommonTier:
+                        highUnitTier = Creature.sHighestCommonTier
             
             # find available tiers
             canSelTierList = []
