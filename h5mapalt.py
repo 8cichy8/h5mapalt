@@ -66,6 +66,8 @@ Options:
     --dwellRatio=4,3,1,0            To choose possible tiers(and theirs weight) of dwell
                                         - tier order: 4,5,6,7
                                         - value "1,1,0,0" would give us 50% T4 and 50% T5
+    --gamePowerLimit=false          To limit some game possibilities
+                                        - town: no Capiton and T5 to T7 dwellings
     
     --nogui                         To run console version (in gui version)
     --pathToGameFolder=../          Path to game folder.
@@ -116,6 +118,7 @@ def resetArgs():
     g["waterChange"] = "true"
     g["dwellChange"] = "true"
     g["dwellRatio"] = "4,3,1,0"
+    g["gamePowerLimit"] = "false"
     
     g["logArtInit"] = "false"
     g["logArtChange"] = "false"
@@ -161,7 +164,7 @@ def parseArgs(pArgs):
         "creaChange", "artChangeOnlyRandom", "artRandom", "creaChangeOnlyRandom", 
         "creaMoodChange", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
         "creaNeutralRatio", "creaRandom", "creaNCF", "enableScripts", 
-        "waterChange", "dwellChange", "dwellRatio", "logArtInit", "logArtChange", 
+        "waterChange", "dwellChange", "dwellRatio", "gamePowerLimit", "logArtInit", "logArtChange", 
         "logCreaInit", "logCreaChange", "logWaterChange", "logMapInfo", "logWarnings", 
         "guiIsShown"
     ]
@@ -203,6 +206,7 @@ def parseArgs(pArgs):
     g["enableScripts"] = g["enableScripts"] in trueStrList
     g["waterChange"] = g["waterChange"] in trueStrList
     g["dwellChange"] = g["dwellChange"] in trueStrList
+    g["gamePowerLimit"] = g["gamePowerLimit"] in trueStrList
     
     g["logArtInit"] = g["logArtInit"] in trueStrList
     g["logArtChange"] = g["logArtChange"] in trueStrList
@@ -995,6 +999,7 @@ class Town:
     def __init__(self):
         self.mId = ""
         self.mPlayer = ""
+        self.mObj = None
     
     @staticmethod
     def fromXml(pXml):
@@ -1002,6 +1007,7 @@ class Town:
         if pXml is not None:
             obj = Town()
             obj.mId = pXml.get("id", "")
+            obj.mObj = pXml
             desc = pXml.find("AdvMapTown")
             if desc is not None:
                 obj.mPlayer = desc.findtext("PlayerID", "PLAYER_NONE")
@@ -1533,6 +1539,38 @@ class Map:
         
         print("high tier dwellings changed: {}".format(dwellsChanged))
     
+    def limitGamePower(self):
+        buildsToSet = [
+            {"Type": "TB_TOWN_HALL", "InitialUpgrade": "BLD_UPG_1", "MaxUpgrade": "BLD_UPG_3"},
+            {"Type": "TB_DWELLING_5", "InitialUpgrade": "BLD_UPG_NONE", "MaxUpgrade": "BLD_UPG_NONE"},
+            {"Type": "TB_DWELLING_6", "InitialUpgrade": "BLD_UPG_NONE", "MaxUpgrade": "BLD_UPG_NONE"},
+            {"Type": "TB_DWELLING_7", "InitialUpgrade": "BLD_UPG_NONE", "MaxUpgrade": "BLD_UPG_NONE"}
+        ]
+        
+        buildsTypesToSet = []
+        for build in buildsToSet:
+            buildsTypesToSet.append(build["Type"])
+        
+        for town in Town.sAll:
+            townInnerObj = town.mObj.find("AdvMapTown")
+            builds = townInnerObj.find("buildings")
+            buildsToRemove = []
+            
+            for build in builds:
+                if build.find("Type").text in buildsTypesToSet:
+                    buildsToRemove.append(build)
+            
+            for build in buildsToRemove:
+                builds.remove(build)
+            
+            for build in buildsToSet:
+                buildDesc = ET.SubElement(builds, "Item")
+                ET.SubElement(buildDesc, "Type").text = build["Type"]
+                ET.SubElement(buildDesc, "InitialUpgrade").text = build["InitialUpgrade"]
+                ET.SubElement(buildDesc, "MaxUpgrade").text = build["MaxUpgrade"]
+        
+        print("game power limited")
+    
     def enableScripts(self):
         if self.mTree is None:
             return
@@ -1571,6 +1609,8 @@ def run(pArgs=None):
             gameMap.changeWaterObjects()
         if dwellChange:
             gameMap.changeDwellings()
+        if gamePowerLimit:
+            gameMap.limitGamePower()
         
         gameMap.save()
 

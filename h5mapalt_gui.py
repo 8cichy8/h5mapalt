@@ -31,6 +31,7 @@ class MyFrame(wx.Frame):
         self.enableScriptsCheck = None
         self.waterChangeCheck = None
         self.dwellChangeCheck = None
+        self.gamePowerLimitCheck = None
         self.okBtn = None
         
         
@@ -228,6 +229,11 @@ class MyFrame(wx.Frame):
         self.Bind(wx.EVT_CHECKBOX, self.OnDwellChangeCheckChange, self.dwellChangeCheck)
         otherSizer.Add(self.dwellChangeCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
         
+        self.gamePowerLimitCheck = wx.CheckBox(otherBox, wx.ID_ANY, "limit game power")
+        self.gamePowerLimitCheck.SetValue(False)
+        self.Bind(wx.EVT_CHECKBOX, self.OnGamePowerLimitCheckChange, self.gamePowerLimitCheck)
+        otherSizer.Add(self.gamePowerLimitCheck, 1, wx.ALL|wx.ALIGN_CENTER_VERTICAL|wx.EXPAND, 5)
+        
         otherBorderSizer = wx.BoxSizer(wx.VERTICAL)
         otherBorderSizer.Add(otherSizer, 0, wx.TOP|wx.BOTTOM|wx.EXPAND, 20)
         otherBox.SetSizerAndFit(otherBorderSizer)
@@ -311,10 +317,13 @@ class MyFrame(wx.Frame):
     def OnDwellChangeCheckChange(self, pEvent):
         self.CheckOkButtonState()
     
+    def OnGamePowerLimitCheckChange(self, pEvent):
+        self.CheckOkButtonState()
+    
     def CheckOkButtonState(self):
         enableOkButton = (self.creaChangeCheck.GetValue() or self.artChangeCheck.GetValue() 
                             or self.enableScriptsCheck.GetValue() or self.waterChangeCheck.GetValue() 
-                            or self.dwellChangeCheck.GetValue())
+                            or self.dwellChangeCheck.GetValue() or self.gamePowerLimitCheck.GetValue())
         self.okBtn.Enable(enableOkButton)
     
     def OnMapFileBtnClick(self, pEvent):
@@ -348,6 +357,7 @@ class MyFrame(wx.Frame):
         argEnableScripts = "--enableScripts=" + ("true" if self.enableScriptsCheck.GetValue() else "false")
         argWaterChange = "--waterChange=" + ("true" if self.waterChangeCheck.GetValue() else "false")
         argDwellChange = "--dwellChange=" + ("true" if self.dwellChangeCheck.GetValue() else "false")
+        argGamePowerLimit = "--gamePowerLimit=" + ("true" if self.gamePowerLimitCheck.GetValue() else "false")
         
         argGuiIsShown = "--guiIsShown=true"
         
@@ -355,7 +365,7 @@ class MyFrame(wx.Frame):
             argMapFile, argArtChange, argCreaChange, argArtChangeOnlyRandom, argArtRandom, 
             argCreaChangeOnlyRandom, argCreaRandom, argCreaPowerRatio, argCreaGroupRatio, 
             argCreaNeutralRatio, argCreaNCF, argCreaMoodChange, argCreaMoodRatio, 
-            argEnableScripts, argWaterChange, argDwellChange, argGuiIsShown
+            argEnableScripts, argWaterChange, argDwellChange, argGamePowerLimit, argGuiIsShown
         ]
         try:
             mapalt.run(args)
