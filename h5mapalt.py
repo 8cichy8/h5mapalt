@@ -1485,31 +1485,45 @@ class Map:
                     dwellsChanged += 1
                     
                     town = None
+                    player = None
                     linkTownHref = dwell.find("LinkToTown").get("href", "")
                     if len(linkTownHref) > (townIdPrefixLen + townIdPostfixLen):
                         town = Town.getById(linkTownHref[townIdPrefixLen : len(linkTownHref) - townIdPostfixLen])
                     
-                    if town is not None:
-                        if town.hasPlayer():
-                            # player town
-                            # all players will have same dwellings
-                            if town.mPlayer not in playerMap:
-                                playerMap[town.mPlayer] = 0
-                            if playerMap[town.mPlayer] not in playerTownDwellSharedList:
-                                playerTownDwellSharedList[playerMap[town.mPlayer]] = rand.choice(dwellList)
-                            sharedNode.set("href", playerTownDwellSharedList[playerMap[town.mPlayer]])
-                            
-                            playerMap[town.mPlayer] += 1
+                    if town is not None and town.hasPlayer():
+                        player = town.mPlayer
+                    else:
+                        dwellPlayer = dwell.find("PlayerID").text
+                        if dwellPlayer != "PLAYER_NONE":
+                            player = dwellPlayer
+                        """
+                        # looks like LinkToPlayer do nothing
                         else:
-                            # non player town
-                            # all non players towns will have same dwellings
-                            if town.mId not in townMap:
-                                townMap[town.mId] = 0
-                            if townMap[town.mId] not in townDwellSharedList:
-                                townDwellSharedList[townMap[town.mId]] = rand.choice(dwellList)
-                            sharedNode.set("href", townDwellSharedList[townMap[town.mId]])
-                            
-                            townMap[town.mId] += 1
+                            dwellLinkPlayer = dwell.find("LinkToPlayer").text
+                            if dwellLinkPlayer != "PLAYER_NONE":
+                                player = dwellLinkPlayer
+                        """
+                    
+                    if player is not None:
+                        # player town (link) or player (owner)
+                        # all players will have same dwellings
+                        if player not in playerMap:
+                            playerMap[player] = 0
+                        if playerMap[player] not in playerTownDwellSharedList:
+                            playerTownDwellSharedList[playerMap[player]] = rand.choice(dwellList)
+                        sharedNode.set("href", playerTownDwellSharedList[playerMap[player]])
+                        
+                        playerMap[player] += 1
+                    elif town is not None:
+                        # non player town
+                        # all non players towns will have same dwellings
+                        if town.mId not in townMap:
+                            townMap[town.mId] = 0
+                        if townMap[town.mId] not in townDwellSharedList:
+                            townDwellSharedList[townMap[town.mId]] = rand.choice(dwellList)
+                        sharedNode.set("href", townDwellSharedList[townMap[town.mId]])
+                        
+                        townMap[town.mId] += 1
                     else:
                         # other
                         sharedNode.set("href", rand.choice(dwellList))
