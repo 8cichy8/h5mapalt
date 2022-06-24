@@ -1,3 +1,7 @@
+******* 1.7.0 - 2022.06.24
+Added option to process multiple maps with same settings
+Added option to build/limit selected towns' buildings
+
 ******* 1.6.0 - 2017.06.27
 Chance to place creatures without faction on map can be also increased (arg "creaNeutralReduction" was replaced with "creaNeutralRatio")
 Setting ReflectiveWater to true while changing water objects

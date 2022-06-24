@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 
 __author__ = "Zich Robert (cichy)"
-__version__ = "1.6.0"
+__version__ = "1.7.0"
 
 
 def printHelp():
@@ -17,7 +17,7 @@ def printHelp():
         return
     
     print("""
-Execution: python script.py [OPTIONS] mapFile.h5m
+Execution: python script.py [OPTIONS] mapFile.h5m [anotherMapFile.h5m ...]
 
 This script can change creatures, artifacts and other on homm5/mmh55 maps.
 Script expects path to "data" folder of Tribes of the East is "../data".
@@ -66,6 +66,15 @@ Options:
     --dwellRatio=4,3,1,0            To choose possible tiers(and theirs weight) of dwell
                                         - tier order: 4,5,6,7
                                         - value "1,1,0,0" would give us 50% T4 and 50% T5
+    --townBuild=""                  To build, or limit some town buildings
+                                        - value example "TB_MAGIC_GUILD,1,3,ALL"
+                                        - value description "BUILDING_TYPE,INITIAL_UPGRADE,MAX_UPGRADE,PLAYER_NUMBER":
+                                            - BUILDING_TYPE: building type (TB_TAWN_HALL, TB_FORT, TB_MARKETPLACE, TB_TAVERN, TB_BLACKSMITH, 
+                                                             TB_DWELLING_1, TB_MAGIC_GUILD, TB_SHIPYARD, TB_GRAIL, TB_WONDER, TB_SPECIAL_0)
+                                            - INITIAL_UPGRADE: number of initial upgrade (0-5)
+                                            - MAX_UPGRADE: number of max. enabled upgrade (0-5)
+                                            - PLAYER_NUMBER: build/limit only for this player (ALL, PLAYER, NONE, 1 - 8) (optional)
+                                            - #: can be used to separate more buildings
     --gamePowerLimit=false          To limit some game possibilities
                                         - town: no Capiton and T5 to T7 dwellings
     
@@ -95,7 +104,7 @@ NOTES:
 # reset args func
 def resetArgs():
     g = globals()
-    g["mapFile"] = None
+    g["mapFiles"] = []
     g["pathToGameFolder"] = "../"
     g["loadMapFromBck"] = "true"
     g["createMapBck"] = "true"
@@ -118,6 +127,7 @@ def resetArgs():
     g["waterChange"] = "true"
     g["dwellChange"] = "true"
     g["dwellRatio"] = "4,3,1,0"
+    g["townBuild"] = ""
     g["gamePowerLimit"] = "false"
     
     g["logArtInit"] = "false"
@@ -164,7 +174,7 @@ def parseArgs(pArgs):
         "creaChange", "artChangeOnlyRandom", "artRandom", "creaChangeOnlyRandom", 
         "creaMoodChange", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
         "creaNeutralRatio", "creaRandom", "creaNCF", "enableScripts", 
-        "waterChange", "dwellChange", "dwellRatio", "gamePowerLimit", "logArtInit", "logArtChange", 
+        "waterChange", "dwellChange", "dwellRatio", "townBuild", "gamePowerLimit", "logArtInit", "logArtChange", 
         "logCreaInit", "logCreaChange", "logWaterChange", "logMapInfo", "logWarnings", 
         "guiIsShown"
     ]
@@ -182,8 +192,8 @@ def parseArgs(pArgs):
                     g[argName] = argValue
                     knownArg = True
             if not knownArg:
-                if g["mapFile"] is None:
-                    g["mapFile"] = arg
+                if arg.endswith(".h5m"):
+                    g["mapFiles"].append(arg)
                 else:
                     printHelp()
                     Log.error("Unknown argument: \"{}\"".format(arg))
@@ -283,9 +293,14 @@ def parseArgs(pArgs):
     
     
     # check map file
-    if g["mapFile"] is None or not os.path.exists(g["mapFile"]):
+    if len(g["mapFiles"]) == 0:
         printHelp()
-        Log.error("Map file does not exist: \"{}\"".format(g["mapFile"]))
+        Log.error("Map file does not exist: \"{}\"".format(None))
+    else:
+        for mapFile in g["mapFiles"]:
+            if not os.path.exists(mapFile):
+                printHelp()
+                Log.error("Map file does not exist: \"{}\"".format(mapFile))
     
     # find data folder
     g["dataFolder"] = os.path.join(g["pathToGameFolder"], "data")
@@ -1083,7 +1098,7 @@ class Map:
                             # load map xml tree
                             self.mTree = ET.parse(os.path.join(self.mTempFolder, self.mDataFileName))
                         
-                        print("map loaded")
+                        print("map loaded ({})".format(self.mFileName))
                         break
             
             Town.init(self.mTree)
@@ -1539,37 +1554,54 @@ class Map:
         
         print("high tier dwellings changed: {}".format(dwellsChanged))
     
-    def limitGamePower(self):
-        buildsToSet = [
-            {"Type": "TB_TOWN_HALL", "InitialUpgrade": "BLD_UPG_1", "MaxUpgrade": "BLD_UPG_3"},
-            {"Type": "TB_DWELLING_5", "InitialUpgrade": "BLD_UPG_NONE", "MaxUpgrade": "BLD_UPG_NONE"},
-            {"Type": "TB_DWELLING_6", "InitialUpgrade": "BLD_UPG_NONE", "MaxUpgrade": "BLD_UPG_NONE"},
-            {"Type": "TB_DWELLING_7", "InitialUpgrade": "BLD_UPG_NONE", "MaxUpgrade": "BLD_UPG_NONE"}
-        ]
-        
-        buildsTypesToSet = []
-        for build in buildsToSet:
-            buildsTypesToSet.append(build["Type"])
+    def buildTowns(self, townBuild, gamePowerLimit):
+        townBuildStr = townBuild
+        if gamePowerLimit:
+            townBuildStr += "#TB_TOWN_HALL,1,3#TB_DWELLING_5,0,0#TB_DWELLING_6,0,0#TB_DWELLING_7,0,0"
+
+        buildsTypes = []
+        buildsList = []
+        buildsListStr = townBuildStr.split("#")
+
+        for buildOptionsStr in buildsListStr:
+            buildOptions = buildOptionsStr.split(",")
+            buildObj = {
+                "Type": buildOptions[0],
+                "InitialUpgrade": "BLD_UPG_" + (buildOptions[1] if buildOptions[1] != "0" else "NONE"),
+                "MaxUpgrade": "BLD_UPG_" + ((buildOptions[2] if buildOptions[2] != "0" else "NONE") if len(buildOptions) >= 3 else "5"),
+                "Player": buildOptions[3] if len(buildOptions) == 4 else "ALL"
+            }
+            buildsTypes.append(buildObj["Type"])
+            buildsList.append(buildObj)
         
         for town in Town.sAll:
             townInnerObj = town.mObj.find("AdvMapTown")
-            builds = townInnerObj.find("buildings")
-            buildsToRemove = []
+            townBuilds = townInnerObj.find("buildings")
             
-            for build in builds:
-                if build.find("Type").text in buildsTypesToSet:
-                    buildsToRemove.append(build)
-            
-            for build in buildsToRemove:
-                builds.remove(build)
-            
-            for build in buildsToSet:
-                buildDesc = ET.SubElement(builds, "Item")
+            for build in buildsList:
+                if build["Player"] != "ALL":
+                    townPlayerID = townInnerObj.find("PlayerID").text
+
+                    if build["Player"] == "PLAYER":
+                        if townPlayerID == "PLAYER_NONE":
+                            continue
+                    elif build["Player"] == "NONE":
+                        if townPlayerID != "PLAYER_NONE":
+                            continue
+                    elif townPlayerID != ("PLAYER_" + build["Player"]):
+                        continue
+                
+                for townBuild in townBuilds:
+                    if townBuild.find("Type").text == build["Type"]:
+                        townBuilds.remove(townBuild)
+                        break
+                
+                buildDesc = ET.SubElement(townBuilds, "Item")
                 ET.SubElement(buildDesc, "Type").text = build["Type"]
                 ET.SubElement(buildDesc, "InitialUpgrade").text = build["InitialUpgrade"]
                 ET.SubElement(buildDesc, "MaxUpgrade").text = build["MaxUpgrade"]
         
-        print("game power limited")
+        print("towns buildings changed")
     
     def enableScripts(self):
         if self.mTree is None:
@@ -1592,27 +1624,29 @@ def run(pArgs=None):
         pArgs = sys.argv[1:]
     parseArgs(pArgs)
     
-    if artChange or creaChange or enableScripts or waterChange or dwellChange:
+    if artChange or creaChange or enableScripts or waterChange or dwellChange or len(townBuild) != 0 or gamePowerLimit:
         Artifact.init()
         Creature.init()
         
-        gameMap = Map(mapFile)
-        gameMap.load()
-        
-        if artChange:
-            gameMap.changeArtifacts()
-        if creaChange:
-            gameMap.changeCreatures()
-        if enableScripts:
-            gameMap.enableScripts()
-        if waterChange:
-            gameMap.changeWaterObjects()
-        if dwellChange:
-            gameMap.changeDwellings()
-        if gamePowerLimit:
-            gameMap.limitGamePower()
-        
-        gameMap.save()
+        for mapFile in mapFiles:
+            print("")
+            gameMap = Map(mapFile)
+            gameMap.load()
+            
+            if artChange:
+                gameMap.changeArtifacts()
+            if creaChange:
+                gameMap.changeCreatures()
+            if enableScripts:
+                gameMap.enableScripts()
+            if waterChange:
+                gameMap.changeWaterObjects()
+            if dwellChange:
+                gameMap.changeDwellings()
+            if len(townBuild) != 0 or gamePowerLimit:
+                gameMap.buildTowns(townBuild, gamePowerLimit)
+            
+            gameMap.save()
 
 
 if __name__ == "__main__":

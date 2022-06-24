@@ -5,7 +5,7 @@ Place it in your "bin" or "Maps" folder.
 
 Dependencies:
     python3
-    wxPython Phoenix [(snapshots)](https://wxpython.org/Phoenix/snapshot-builds/)
+    wxPython Phoenix [(snapshots)](https://wxpython.org/Phoenix/snapshot-builds/)  (pip3 install wxPython)
 
 To build exe:
     pip3 install pyinstaller
