@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 
 
 __author__ = "Zich Robert (cichy)"
-__version__ = "1.7.0"
+__version__ = "1.8.0"
 
 
 def printHelp():
@@ -66,15 +66,18 @@ Options:
     --dwellRatio=4,3,1,0            To choose possible tiers(and theirs weight) of dwell
                                         - tier order: 4,5,6,7
                                         - value "1,1,0,0" would give us 50% T4 and 50% T5
+                                        - value "0,0,0,0" will disable high tier dwellings and replace them with battle sites 
     --townBuild=""                  To build, or limit some town buildings
                                         - value example "TB_MAGIC_GUILD,1,3,ALL"
                                         - value description "BUILDING_TYPE,INITIAL_UPGRADE,MAX_UPGRADE,PLAYER_NUMBER":
-                                            - BUILDING_TYPE: building type (TB_TAWN_HALL, TB_FORT, TB_MARKETPLACE, TB_TAVERN, TB_BLACKSMITH, 
+                                            - BUILDING_TYPE: building type (TB_TOWN_HALL, TB_FORT, TB_MARKETPLACE, TB_TAVERN, TB_BLACKSMITH, 
                                                              TB_DWELLING_1, TB_MAGIC_GUILD, TB_SHIPYARD, TB_GRAIL, TB_WONDER, TB_SPECIAL_0)
                                             - INITIAL_UPGRADE: number of initial upgrade (0-5)
                                             - MAX_UPGRADE: number of max. enabled upgrade (0-5)
                                             - PLAYER_NUMBER: build/limit only for this player (ALL, PLAYER, NONE, 1 - 8) (optional)
                                             - #: can be used to separate more buildings
+    --bonusChest=0                  Add bonus chest in front of town. (x * 500 XP) or ((x * 500) + 500 gold)
+    --bonusArt=false                Add bonus minor artifact in front of town.
     --gamePowerLimit=false          To limit some game possibilities
                                         - town: no Capiton and T5 to T7 dwellings
     
@@ -128,6 +131,8 @@ def resetArgs():
     g["dwellChange"] = "true"
     g["dwellRatio"] = "4,3,1,0"
     g["townBuild"] = ""
+    g["bonusChest"] = "0"
+    g["bonusArt"] = "false"
     g["gamePowerLimit"] = "false"
     
     g["logArtInit"] = "false"
@@ -174,9 +179,9 @@ def parseArgs(pArgs):
         "creaChange", "artChangeOnlyRandom", "artRandom", "creaChangeOnlyRandom", 
         "creaMoodChange", "creaMoodRatio", "creaPowerRatio", "creaGroupRatio", 
         "creaNeutralRatio", "creaRandom", "creaNCF", "enableScripts", 
-        "waterChange", "dwellChange", "dwellRatio", "townBuild", "gamePowerLimit", "logArtInit", "logArtChange", 
-        "logCreaInit", "logCreaChange", "logWaterChange", "logMapInfo", "logWarnings", 
-        "guiIsShown"
+        "waterChange", "dwellChange", "dwellRatio", "townBuild", "bonusChest", "bonusArt", 
+        "gamePowerLimit", "logArtInit", "logArtChange", "logCreaInit", "logCreaChange", 
+        "logWaterChange", "logMapInfo", "logWarnings", "guiIsShown"
     ]
     for arg in pArgs:
         if arg not in ignoreArgs:
@@ -217,6 +222,7 @@ def parseArgs(pArgs):
     g["waterChange"] = g["waterChange"] in trueStrList
     g["dwellChange"] = g["dwellChange"] in trueStrList
     g["gamePowerLimit"] = g["gamePowerLimit"] in trueStrList
+    g["bonusArt"] = g["bonusArt"] in trueStrList
     
     g["logArtInit"] = g["logArtInit"] in trueStrList
     g["logArtChange"] = g["logArtChange"] in trueStrList
@@ -230,6 +236,7 @@ def parseArgs(pArgs):
         g["creaPowerRatio"] = float(g["creaPowerRatio"])
         g["creaGroupRatio"] = float(g["creaGroupRatio"])
         g["creaNeutralRatio"] = int(g["creaNeutralRatio"])
+        g["bonusChest"] = int(g["bonusChest"])
         
         if g["creaNeutralRatio"] > 8:
             g["creaNeutralRatio"] = 8
@@ -287,9 +294,6 @@ def parseArgs(pArgs):
                         g["dwellList"].append(basicDwellList[dwellIndex])
             except ValueError:
                 pass
-        if len(g["dwellList"]) == 0:
-            printHelp()
-            Log.error("Value error!")
     
     
     # check map file
@@ -1485,6 +1489,18 @@ class Map:
             "/MapObjects/Dwarven/DwarvenDwelling04.(AdvMapDwellingShared) (2).xdb#xpointer(/AdvMapDwellingShared)",
             "/MapObjects/Orcs/OrcishDwelling04.(AdvMapDwellingShared).xdb#xpointer(/AdvMapDwellingShared)"
         ]
+        battleSitesShared = [
+            "AdvMapBuildingShared:MapObjects\GargoyleStonevault.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\WitchBank.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\DeserterTower.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\Cyclops_Stockpile.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\DwarvenTreasury.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\MysteryTower.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\ForestTower.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\Crypt.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\MagiVault.xdb#xpointer(/AdvMapBuildingShared)",
+            "AdvMapBuildingShared:MapObjects\TreantThicket.(AdvMapBuildingShared).xdb#xpointer(/AdvMapBuildingShared)"
+        ]
         
         playerTownDwellSharedList = {}
         townDwellSharedList = {}
@@ -1496,61 +1512,82 @@ class Map:
         townIdPostfixLen = len(")/AdvMapTown)")
         
         root = self.mTree.getroot()
-        allDwells = root.findall("./objects/Item[@href='#n:inline(AdvMapDwelling)']/AdvMapDwelling")
+        objectsRoot = root.find("objects")
+        allDwells = root.findall("./objects/Item[@href='#n:inline(AdvMapDwelling)']")
         
-        for dwell in allDwells:
+        for dwellOuterNode in allDwells:
+            dwell = dwellOuterNode.find("AdvMapDwelling")
             sharedNode = dwell.find("Shared")
             if sharedNode is not None:
                 sharedValue = sharedNode.get("href", "")
                 if sharedValue in highTierDwellsShared:
                     dwellsChanged += 1
                     
-                    town = None
-                    player = None
-                    linkTownHref = dwell.find("LinkToTown").get("href", "")
-                    if len(linkTownHref) > (townIdPrefixLen + townIdPostfixLen):
-                        town = Town.getById(linkTownHref[townIdPrefixLen : len(linkTownHref) - townIdPostfixLen])
-                    
-                    if town is not None and town.hasPlayer():
-                        player = town.mPlayer
-                    else:
-                        dwellPlayer = dwell.find("PlayerID").text
-                        if dwellPlayer != "PLAYER_NONE":
-                            player = dwellPlayer
-                        """
-                        # looks like LinkToPlayer do nothing
+                    if len(dwellList) > 0:
+                        town = None
+                        player = None
+                        linkTownHref = dwell.find("LinkToTown").get("href", "")
+                        if len(linkTownHref) > (townIdPrefixLen + townIdPostfixLen):
+                            town = Town.getById(linkTownHref[townIdPrefixLen : len(linkTownHref) - townIdPostfixLen])
+                        
+                        if town is not None and town.hasPlayer():
+                            player = town.mPlayer
                         else:
-                            dwellLinkPlayer = dwell.find("LinkToPlayer").text
-                            if dwellLinkPlayer != "PLAYER_NONE":
-                                player = dwellLinkPlayer
-                        """
-                    
-                    if player is not None:
-                        # player town (link) or player (owner)
-                        # all players will have same dwellings
-                        if player not in playerMap:
-                            playerMap[player] = 0
-                        if playerMap[player] not in playerTownDwellSharedList:
-                            playerTownDwellSharedList[playerMap[player]] = rand.choice(dwellList)
-                        sharedNode.set("href", playerTownDwellSharedList[playerMap[player]])
+                            dwellPlayer = dwell.find("PlayerID").text
+                            if dwellPlayer != "PLAYER_NONE":
+                                player = dwellPlayer
+                            """
+                            # looks like LinkToPlayer do nothing
+                            else:
+                                dwellLinkPlayer = dwell.find("LinkToPlayer").text
+                                if dwellLinkPlayer != "PLAYER_NONE":
+                                    player = dwellLinkPlayer
+                            """
                         
-                        playerMap[player] += 1
-                    elif town is not None:
-                        # non player town
-                        # all non players towns will have same dwellings
-                        if town.mId not in townMap:
-                            townMap[town.mId] = 0
-                        if townMap[town.mId] not in townDwellSharedList:
-                            townDwellSharedList[townMap[town.mId]] = rand.choice(dwellList)
-                        sharedNode.set("href", townDwellSharedList[townMap[town.mId]])
+                        if player is not None:
+                            # player town (link) or player (owner)
+                            # all players will have same dwellings
+                            if player not in playerMap:
+                                playerMap[player] = 0
+                            if playerMap[player] not in playerTownDwellSharedList:
+                                playerTownDwellSharedList[playerMap[player]] = rand.choice(dwellList)
+                            sharedNode.set("href", playerTownDwellSharedList[playerMap[player]])
+                            
+                            playerMap[player] += 1
+                        elif town is not None:
+                            # non player town
+                            # all non players towns will have same dwellings
+                            if town.mId not in townMap:
+                                townMap[town.mId] = 0
+                            if townMap[town.mId] not in townDwellSharedList:
+                                townDwellSharedList[townMap[town.mId]] = rand.choice(dwellList)
+                            sharedNode.set("href", townDwellSharedList[townMap[town.mId]])
+                            
+                            townMap[town.mId] += 1
+                        else:
+                            # other
+                            sharedNode.set("href", rand.choice(dwellList))
                         
-                        townMap[town.mId] += 1
+                        dwell.find("RandomCreatures").text = "false"
+                        dwell.find("creaturesEnabled").clear()
                     else:
-                        # other
-                        sharedNode.set("href", rand.choice(dwellList))
-                    
-                    dwell.find("RandomCreatures").text = "false"
-                    dwell.find("creaturesEnabled").clear()
+                        # disable high tier dwellings and replace them with battle sites
+                        battleSiteOuterObj = ET.SubElement(objectsRoot, "Item")
+                        battleSiteOuterObj.set("href", "#n:inline(AdvMapBuilding)")
+                        battleSiteOuterObj.set("id", "item_bsite_" + str(rand.randint(1, 999999999)))
+                        battleSiteObj = ET.SubElement(battleSiteOuterObj, "AdvMapBuilding")
+
+                        dwellPos = dwell.find("Pos")
+                        posObj = ET.SubElement(battleSiteObj, "Pos")
+                        ET.SubElement(posObj, "x").text = dwellPos.find("x").text
+                        ET.SubElement(posObj, "y").text = dwellPos.find("y").text
+                        ET.SubElement(posObj, "z").text = dwellPos.find("z").text
+                        ET.SubElement(battleSiteObj, "Rot").text = dwell.find("Rot").text
+                        ET.SubElement(battleSiteObj, "Floor").text = dwell.find("Floor").text
+                        ET.SubElement(battleSiteObj, "Shared").set("href", rand.choice(battleSitesShared))
+
+                        objectsRoot.remove(dwellOuterNode)
+                        pass
         
         print("high tier dwellings changed: {}".format(dwellsChanged))
     
@@ -1602,6 +1639,100 @@ class Map:
                 ET.SubElement(buildDesc, "MaxUpgrade").text = build["MaxUpgrade"]
         
         print("towns buildings changed")
+
+    def addPlayerBonus(self, bonusChest, bonusArt):
+        # NOTE: Map position 0-0 is at left-bottom corner.
+        #       Object position is usually at center.
+        #       Object basic rotations are: 0 (6 hours), 1.57079 (3 hours), 3.14159 (12 hours), 4.71238 (9 hours)
+        #       Work only with basic rotations!!
+        townSize = 9
+        entranceAddPos = 4 # or 5?
+        bonusAddPos = 7
+        rotEntranceDescs = {
+            "0":       {"frontPos": "y", "sidePos": "x", "frontMulti": -1, "reverseRot": "3.14159"},
+            "1.57079": {"frontPos": "x", "sidePos": "y", "frontMulti": 1, "reverseRot": "4.71238"},
+            "3.14159": {"frontPos": "y", "sidePos": "x", "frontMulti": 1, "reverseRot": "0"},
+            "4.71238": {"frontPos": "x", "sidePos": "y", "frontMulti": -1, "reverseRot": "1.57079"},
+        }
+
+        root = self.mTree.getroot()
+        objectsRoot = root.find("objects")
+
+        for town in Town.sAll:
+            townInnerObj = town.mObj.find("AdvMapTown")
+            if townInnerObj.find("PlayerID").text != "PLAYER_NONE":
+                townPos = townInnerObj.find("Pos")
+                townPosInfo = {
+                    "x": int(townPos.find("x").text),
+                    "y": int(townPos.find("y").text),
+                    "z": int(townPos.find("z").text),
+                    "Floor": townInnerObj.find("Floor").text,
+                    "Rot": townInnerObj.find("Rot").text
+                }
+                rotEntranceDesc = rotEntranceDescs[townPosInfo["Rot"]] if townPosInfo["Rot"] in rotEntranceDescs else rotEntranceDescs["0"]
+
+                bonusPosInfo = {
+                    rotEntranceDesc["frontPos"]: townPosInfo[rotEntranceDesc["frontPos"]] + (bonusAddPos  * rotEntranceDesc["frontMulti"]),
+                    rotEntranceDesc["sidePos"]: townPosInfo[rotEntranceDesc["sidePos"]],
+                    "Rot": rotEntranceDesc["reverseRot"]
+                }
+
+                if bonusChest > 0:
+                    # bonus chest
+                    bonusOuterObj = ET.SubElement(objectsRoot, "Item")
+                    bonusOuterObj.set("href", "#n:inline(AdvMapTreasure)")
+                    bonusOuterObj.set("id", "item_chest_" + str(rand.randint(1, 999999999)))
+                    bonusObj = ET.SubElement(bonusOuterObj, "AdvMapTreasure")
+                    posObj = ET.SubElement(bonusObj, "Pos")
+                    ET.SubElement(posObj, "x").text = str(bonusPosInfo["x"])
+                    ET.SubElement(posObj, "y").text = str(bonusPosInfo["y"])
+                    ET.SubElement(posObj, "z").text = str(townPosInfo["z"])
+                    ET.SubElement(bonusObj, "Rot").text = bonusPosInfo["Rot"]
+                    ET.SubElement(bonusObj, "Floor").text = townPosInfo["Floor"]
+                    ET.SubElement(bonusObj, "Shared").set("href", "/MapObjects/Chest.(AdvMapTreasureShared).xdb#xpointer(/AdvMapTreasureShared)")
+                    ET.SubElement(bonusObj, "IsCustom").text = "true"
+                    ET.SubElement(bonusObj, "Amount").text = str(bonusChest) # (x * 500 XP) or ((x * 500) + 500 gold)
+                    # ET.SubElement(bonusObj, "Name")
+                    # ET.SubElement(bonusObj, "CombatScript")
+                    # ET.SubElement(bonusObj, "pointLights")
+                    # ET.SubElement(bonusObj, "MessageFileRef").set("href", "")
+
+                if bonusArt:
+                    # bonus artifact
+                    bonusOuterObj = ET.SubElement(objectsRoot, "Item")
+                    bonusOuterObj.set("href", "#n:inline(AdvMapArtifact)")
+                    bonusOuterObj.set("id", "item_art_" + str(rand.randint(1, 999999999)))
+                    bonusObj = ET.SubElement(bonusOuterObj, "AdvMapArtifact")
+                    posObj = ET.SubElement(bonusObj, "Pos")
+                    ET.SubElement(posObj, rotEntranceDesc["frontPos"]).text = str(bonusPosInfo[rotEntranceDesc["frontPos"]])
+                    ET.SubElement(posObj, rotEntranceDesc["sidePos"]).text = str(bonusPosInfo[rotEntranceDesc["sidePos"]] + 1)
+                    ET.SubElement(posObj, "z").text = str(townPosInfo["z"])
+                    ET.SubElement(bonusObj, "Rot").text = bonusPosInfo["Rot"]
+                    ET.SubElement(bonusObj, "Floor").text = townPosInfo["Floor"]
+                    ET.SubElement(bonusObj, "Shared").set("href", "/MapObjects/Random/Random-Minor.(AdvMapArtifactShared).xdb#xpointer(/AdvMapArtifactShared)")
+
+                # # bonus unit (not working ...)
+                # bonusOuterObj = ET.SubElement(objectsRoot, "Item")
+                # bonusOuterObj.set("href", "#n:inline(AdvMapMonster)")
+                # bonusOuterObj.set("id", "item_monter_" + str(rand.randint(1, 999999999)))
+                # bonusObj = ET.SubElement(bonusOuterObj, "AdvMapMonster")
+                # posObj = ET.SubElement(bonusObj, "Pos")
+                # ET.SubElement(posObj, rotEntranceDesc["frontPos"]).text = str(bonusPosInfo[rotEntranceDesc["frontPos"]])
+                # ET.SubElement(posObj, rotEntranceDesc["sidePos"]).text = str(bonusPosInfo[rotEntranceDesc["sidePos"]] - 1)
+                # ET.SubElement(posObj, "z").text = str(townPosInfo["z"])
+                # ET.SubElement(bonusObj, "Rot").text = bonusPosInfo["Rot"]
+                # ET.SubElement(bonusObj, "Floor").text = townPosInfo["Floor"]
+                # ET.SubElement(bonusObj, "Shared").set("href", "/MapObjects/Random/Random-Monster-L4.(AdvMapMonsterShared).xdb#xpointer(/AdvMapMonsterShared)")
+                # ET.SubElement(bonusObj, "Custom").text = "true"
+                # ET.SubElement(bonusObj, "Amount").text = "5"
+                # ET.SubElement(bonusObj, "Amount2").text = "0"
+                # ET.SubElement(bonusObj, "DoesNotGrow").text = "true"
+                # ET.SubElement(bonusObj, "Mood").text = "MONSTER_MOOD_FRIENDLY"
+                # ET.SubElement(bonusObj, "Courage").text = "MONSTER_COURAGE_ALWAYS_JOIN"
+                # # ET.SubElement(bonusObj, "LinkToPlayer").text = townInnerObj.find("PlayerID").text
+                # # ET.SubElement(bonusObj, "LinkToTown").set("href", "#xpointer(id(" + town.mObj.get("id") + ")/AdvMapTown)")
+            
+        print("players' bonuses added")
     
     def enableScripts(self):
         if self.mTree is None:
@@ -1624,7 +1755,8 @@ def run(pArgs=None):
         pArgs = sys.argv[1:]
     parseArgs(pArgs)
     
-    if artChange or creaChange or enableScripts or waterChange or dwellChange or len(townBuild) != 0 or gamePowerLimit:
+    if (artChange or creaChange or enableScripts or waterChange or dwellChange or len(townBuild) != 0 
+            or gamePowerLimit or bonusChest > 0 or bonusArt):
         Artifact.init()
         Creature.init()
         
@@ -1645,7 +1777,9 @@ def run(pArgs=None):
                 gameMap.changeDwellings()
             if len(townBuild) != 0 or gamePowerLimit:
                 gameMap.buildTowns(townBuild, gamePowerLimit)
-            
+            if bonusChest > 0 or bonusArt:
+                gameMap.addPlayerBonus(bonusChest, bonusArt)
+
             gameMap.save()
 
 
